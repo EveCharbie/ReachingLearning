@@ -22,9 +22,8 @@ class DeterministicArmModel(ArmModel):
 
     def dynamics(
             self,
-            q,
-            qdot,
-            muscle,
+            x,
+            u,
     ) -> cas.Function:
         """
         OCP dynamics
@@ -37,24 +36,21 @@ class DeterministicArmModel(ArmModel):
             # motor_noise,
         """
 
-        q = DynamicsFunctions.get(nlp.states["q"], states)
-        qdot = DynamicsFunctions.get(nlp.states["qdot"], states)
-        mus_activations = DynamicsFunctions.get(nlp.states["muscles"], states)
-        mus_excitations = DynamicsFunctions.get(nlp.controls["muscles"], controls)
-        tau_residuals = DynamicsFunctions.get(nlp.controls["tau"], controls)
+        q = x[0:2]
+        qdot = x[2:4]
+        muscle = u
 
-        muscles_tau = nlp.model.get_muscle_torque(q, qdot, mus_activations)
+        muscles_tau = self.get_muscle_torque(q, qdot, muscle)
 
-        tau_force_field = nlp.model.force_field(q, self.force_field_magnitude)
+        tau_force_field = self.force_field(q, self.force_field_magnitude)
 
-        torques_computed = muscles_tau + tau_force_field + tau_residuals
+        torques_computed = muscles_tau + tau_force_field
 
         dq_computed = qdot
-        dactivations_computed = (mus_excitations - mus_activations) / nlp.model.tau_coef
 
-        a1 = nlp.model.I1 + nlp.model.I2 + nlp.model.m2 * nlp.model.l1**2
-        a2 = nlp.model.m2 * nlp.model.l1 * nlp.model.lc2
-        a3 = nlp.model.I2
+        a1 = self.I1 + self.I2 + self.m2 * self.l1**2
+        a2 = self.m2 * self.l1 * self.lc2
+        a3 = self.I2
 
         theta_elbow = q[1]
         dtheta_shoulder = qdot[0]
@@ -71,11 +67,11 @@ class DeterministicArmModel(ArmModel):
         nleffects[0] = a2 * cas.sin(theta_elbow) * (-dtheta_elbow * (2 * dtheta_shoulder + dtheta_elbow))
         nleffects[1] = a2 * cas.sin(theta_elbow) * dtheta_shoulder**2
 
-        friction = nlp.model.friction_coefficients
+        friction = self.friction_coefficients
 
         dqdot_computed = cas.inv(mass_matrix) @ (torques_computed - nleffects - friction @ qdot)
-        dxdt = cas.vertcat(dq_computed, dqdot_computed, dactivations_computed)
+        dxdt = cas.vertcat(dq_computed, dqdot_computed)
 
-        return DynamicsEvaluation(dxdt=dxdt, defects=None)
+        return dxdt
 
 
