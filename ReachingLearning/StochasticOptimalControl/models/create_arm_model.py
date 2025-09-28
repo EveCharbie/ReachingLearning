@@ -15,7 +15,7 @@ from biobuddy import (
     Rotations,
     Translations,
     RotoTransMatrix,
-    SymmetryTool,
+    FlatteningTool,
 )
 
 _logger = logging.getLogger(__name__)
@@ -116,7 +116,6 @@ def main():
         if segment in model.segment_names:
             model.remove_segment(segment)
     model.segments["scapula_parent_offset"].parent_name = "ground"
-    # model.segments["humphant_rotation_1"].parent_name = "ground"
 
     # Removing unused muscles
     muscles_to_remove = [
@@ -172,7 +171,7 @@ def main():
 
     model.update_muscle_groups()
 
-    # Remove markers
+    # Remove all markers
     for segment in model.segments:
         segment.markers = []
 
@@ -218,68 +217,70 @@ def main():
          'radius_offset_deviation',
          'radius_offset_flexion'
     ]
-    for dof_name in dofs_to_remove:
-        for segment in model.segments:
-            if dof_name in segment.dof_names:
-                segment.remove_dof(dof_name)
+    model.remove_dofs(dofs_to_remove)
 
-    # # Add a shoulder dof in the right joint coordinate system
-    # model.segments["humphant_offset_shoulder_elv"].rotations = Rotations.Z
-    # model.segments["humphant_offset_shoulder_elv"].dof_names = ["shoulder_rotZ"]
+    # Remove the rotation RT since we removed the dofs associated with them
+    rts_to_remove = [
+         'scapula_offset_unrothum_r1',
+         'scapula_offset_unrothum_r3',
+         'scapula_offset_unrothum_r2',
+         'scapphant_reset_axis',
+         'scapphant',
+         'scapphant_offset_elv_angle',
+         'humphant_rotation_1',
+         'humphant_rotation_2',
+         'humphant_reset_axis',
+         'humphant',
+         'humphant_offset_shoulder_elv',
+         'humphant_offset_shoulder1_r2',
+         'humphant1_rotation_2',
+         'humphant1_reset_axis',
+         'humphant1',
+         'humphant1_offset_shoulder_rot',
+         'humerus_offset_elbow_flexion',
+         'humerus_rotation_1',
+         'humerus_rotation_2',
+         'humerus_reset_axis',
+         'ulna',
+         'ulna_rotation_1',
+         'ulna_rotation_2',
+         'ulna_reset_axis',
+         'ulna_offset_pro_sup',
+         'radius_rotation_1',
+         'radius_rotation_2',
+         'radius_reset_axis',
+    ]
+    for segment in model.segments.copy():
+        if segment.name in rts_to_remove:
+            model.segments[segment.name].segment_coordinate_system.scs = RotoTransMatrix()
+    model.segments["humerus_offset_elbow_flexion"].rotations = Rotations.NONE
+    model.segments["humerus_offset_elbow_flexion"].dof_names = []
 
     # Remove more segments
-    for segment_name in model.get_chain_between_segments("scapula_translation", "scapula")[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["scapula"].parent_name = "scapula_parent_offset"
-    model.segments["scapphant_parent_offset"].segment_coordinate_system.scs.translation = np.array([0, 0, 0])
-    model.segments["scapula"].mesh_file = None
-
-    for segment_name in model.get_chain_between_segments("scapphant_translation", "scapphant").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["scapphant"].parent_name = "scapphant_parent_offset"
-
-    for segment_name in model.get_chain_between_segments("humphant_translation", "humphant").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["humphant"].parent_name = "humphant_parent_offset"
-
-    for segment_name in model.get_chain_between_segments("humphant1_translation", "humphant1").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["humphant1"].parent_name = "humphant1_parent_offset"
-    model.segments["humphant1"].rotations = Rotations.Z
-    model.segments["humphant1"].dof_names = ["shoulder_rotZ"]
-
-    for segment_name in model.get_chain_between_segments("humerus_translation", "humerus").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["humerus"].parent_name = "humerus_parent_offset"
-
-    for segment_name in model.get_chain_between_segments("ulna_translation", "ulna").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["ulna"].parent_name = "ulna_parent_offset"
+    model.segments["humerus"].rotations = Rotations.Z
+    model.segments["humerus"].dof_names = ["shoulder_rotZ"]
     model.segments["ulna"].rotations = Rotations.Z
     model.segments["ulna"].dof_names = ["elbow_rotZ"]
-
-    for segment_name in model.get_chain_between_segments("radius_translation", "radius").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["radius"].parent_name = "radius_parent_offset"
-
+    model.segments["scapphant_parent_offset"].segment_coordinate_system.scs.translation = np.array([0, 0, 0])
+    model.segments["scapula"].mesh_file = None
+    model.update_segments()
 
     # Place the zero at the shoulder center
     global_jcs = model.forward_kinematics()
     shoulder_position = global_jcs["humerus"][0].translation
-    model.segments["ground"].segment_coordinate_system.scs.translation -= shoulder_position
+    model.segments["root"].segment_coordinate_system.scs.translation -= shoulder_position
 
-
-    # Symmetrize the model
-    symmetry_tool = SymmetryTool(model, axis=Translations.Z)
-    model = symmetry_tool.symmetrize()
-
+    # Flatten the model (3D -> 2D)
+    symmetry_tool = FlatteningTool(model, axis=Translations.Z)
+    model = symmetry_tool.flatten()
 
     # And convert it to a .bioMod file
     model.to_biomod(biomod_filepath, with_mesh=visualization_flag)
 
     if visualization_flag:
+        # NOTE: Please note that the meshes do not seem to be aligned with the segments in the visualization,
+        # but it is a visual artifact, the inertia properties lie on the axis.
         import pyorerun
-
         animation = pyorerun.LiveModelAnimation(biomod_filepath, with_q_charts=True)
         animation.rerun()
 
