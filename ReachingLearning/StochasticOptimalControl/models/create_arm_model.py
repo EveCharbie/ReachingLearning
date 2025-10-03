@@ -1,24 +1,38 @@
 """
 This file was used to create the arm model used in the reaching learning example.
+1. The inertia characteristics are extracted from Li & Todorov 2004.
+2. The muscle origins, insertions, and via points are eye balled from the figure in Li & Todorov 2004.
+3. The muscle via points positions are replaced by fitting the muscle lever arms (Livet et al. 2022) from Li & Todorov 2004.
+4. The muscle origin and insertion positions are adjusted along the muscle trajectories (Livet et al. 2022) to match the muscle lengths from Li & Todorov 2004.
 """
 
 import logging
-from pathlib import Path
 import numpy as np
 
 from biobuddy import (
     MuscleType,
     MuscleStateType,
-    MeshParser,
-    MeshFormat,
     BiomechanicalModelReal,
     Rotations,
-    Translations,
     RotoTransMatrix,
-    SymmetryTool,
+    SegmentReal,
+    MeshFileReal,
+    SegmentCoordinateSystemReal,
+    RangeOfMotion,
+    Ranges,
+    InertiaParametersReal,
+    MarkerReal,
+    MuscleGroupReal,
+    MuscleReal,
+    ViaPointReal,
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def find_via_point_that_matches_lever_arm():
+    return
+
 
 
 def main():
@@ -30,249 +44,307 @@ def main():
             logging.StreamHandler()
         ],
     )
+
     visualization_flag = True
 
     # Paths
-    current_path_file = Path(__file__).parent
-    biomod_filepath = "MOBL_ARMS_41.bioMod"
-    osim_filepath = "MOBL_ARMS_41.osim"
-    geometry_path = "mesh_cleaned"
+    biomod_filepath = "arm_model.bioMod"
 
-    # # Convert the vtp files
-    # mesh = MeshParser(geometry_folder="mesh")
-    # mesh.process_meshes(fail_on_error=False)
-    # mesh.write(geometry_path, format=MeshFormat.VTP)
 
-    # Read the .osim file
-    model = BiomechanicalModelReal().from_osim(
-        filepath=osim_filepath,
-        muscle_type=MuscleType.HILL_DE_GROOTE,
-        muscle_state_type=MuscleStateType.DEGROOTE,
-        mesh_dir=geometry_path,
+    # Create a model holder
+    model = BiomechanicalModelReal()
+
+    # Add segments
+    model.add_segment(SegmentReal(name="base"))
+
+    model.add_segment(
+        SegmentReal(
+            name="upper_arm",
+            parent_name="base",
+            rotations = Rotations.Z,
+            dof_names=["shoulder_angle"],
+            q_ranges = RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi/2]),
+            segment_coordinate_system=SegmentCoordinateSystemReal(
+                scs=RotoTransMatrix(), is_scs_local=True
+            ),
+            inertia_parameters=InertiaParametersReal(
+                mass=1.4,
+                center_of_mass=np.array([0.11, 0, 0]),
+                inertia=np.array([0, 0, 0.025])
+            ),
+            mesh_file=MeshFileReal(
+                mesh_file_name="mesh_cleaned/humerus.vtp",
+                mesh_scale = None,
+                mesh_rotation = np.array([0, 0, np.pi/2]),
+                mesh_translation = None,
+            ),
+        )
     )
-    # Fix the via points before translating to biomod as there are some conditional and moving via points
-    model.fix_via_points(q=np.zeros((model.nb_q,)))
 
-    # Removing unused segments
-    segments_to_remove = [
-                        'thorax_parent_offset',
-                        'thorax_translation',
-                        'thorax_rotation_transform',
-                        'thorax',
-                        'clavicle_parent_offset',
-                        'clavicle_translation',
-                        'thorax_offset_sternoclavicular_r2',
-                        'thorax_offset_sternoclavicular_r3',
-                        'clavicle_rotation_2',
-                        'clavicle_reset_axis',
-                        'clavicle',
-                        'clavphant_parent_offset',
-                        'clavphant_translation',
-                        'clavicle_offset_unrotscap_r3',
-                        'clavicle_offset_unrotscap_r2',
-                        'clavphant_rotation_2',
-                        'clavphant_reset_axis',
-                        'clavphant',
-                        'proximal_row_parent_offset',
-                         'proximal_row_translation',
-                         'radius_offset_deviation',
-                         'proximal_row_rotation_1',
-                         'radius_offset_flexion',
-                         'proximal_row_reset_axis',
-                         'proximal_row_geom_2',
-                         'proximal_row_geom_3',
-                         'proximal_row_geom_4',
-                         'proximal_row',
-                         'hand_parent_offset',
-                         'hand_translation',
-                         'proximal_row_offset_wrist_hand_r1',
-                         'proximal_row_offset_wrist_hand_r3',
-                         'hand_rotation_2',
-                         'hand_reset_axis',
-                         'hand_geom_2',
-                         'hand_geom_3',
-                         'hand_geom_4',
-                         'hand_geom_5',
-                         'hand_geom_6',
-                         'hand_geom_7',
-                         'hand_geom_8',
-                         'hand_geom_9',
-                         'hand_geom_10',
-                         'hand_geom_11',
-                         'hand_geom_12',
-                         'hand_geom_13',
-                         'hand_geom_14',
-                         'hand_geom_15',
-                         'hand_geom_16',
-                         'hand_geom_17',
-                         'hand_geom_18',
-                         'hand_geom_19',
-                         'hand_geom_20',
-                         'hand_geom_21',
-                         'hand_geom_22',
-                         'hand_geom_23',
-                         'hand']
-    for segment in segments_to_remove:
-        if segment in model.segment_names:
-            model.remove_segment(segment)
-    model.segments["scapula_parent_offset"].parent_name = "ground"
-    # model.segments["humphant_rotation_1"].parent_name = "ground"
+    scs_lower_arm = RotoTransMatrix()
+    scs_lower_arm.from_euler_angles_and_translation(
+                        angle_sequence="xyz",
+                        angles=np.array([0, 0, 0]),
+                        translation=np.array([0.3, 0, 0]),
+                    )
+    model.add_segment(
+        SegmentReal(
+            name="lower_arm",
+            parent_name="upper_arm",
+            rotations = Rotations.Z,
+            dof_names=["elbow_angle"],
+            q_ranges = RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi]),
+            segment_coordinate_system=SegmentCoordinateSystemReal(
+                scs=scs_lower_arm, is_scs_local=True
+            ),
+            inertia_parameters=InertiaParametersReal(
+                mass=1.0,
+                center_of_mass=np.array([0.16, 0, 0]),
+                inertia=np.array([0, 0, 0.045])
+            ),
+            mesh_file=MeshFileReal(
+                mesh_file_name="mesh_cleaned/radius.vtp",
+                mesh_scale = None,
+                mesh_rotation = np.array([0, 0+0.1, np.pi/2-0.1]),
+                mesh_translation = None,
+            ),
+        )
+    )
 
-    # Removing unused muscles
-    muscles_to_remove = [
-        'DELT1',
-        'PECM1',
-        'DELT2',
-        'SUPSP',
-        'INFSP',
-        'SUBSC',
-        'TMIN',
-        'TMAJ',
-        'DELT3',
-        'CORB',
-        'PECM2',
-        'PECM3',
-        'LAT1',
-        'LAT2',
-        'LAT3',
-        'ANC',
-        'SUP',
-        'PQ',
-        'BRD',
-        'PT',
-        'ECRL',
-        'ECRB',
-        'ECU',
-        'FCR',
-        'FCU',
-        'PL',
-        'FDSL',
-        'FDSR',
-        'EDCL',
-        'EDCR',
-        'EDCM',
-        'EDCI',
-        'EDM',
-        'FDSM',
-        'FDSI',
-        'FDPL',
-        'FDPR',
-        'FDPM',
-        'FDPI',
-        'EIP',
-        'EPL',
-        'EPB',
-        'FPL',
-        'APL',
-    ]
-    for muscle_group in  model.muscle_groups.copy():
-        for muscle in muscle_group.muscles.copy():
-            if muscle.name in muscles_to_remove:
-                model.muscle_groups[muscle_group.name].remove_muscle(muscle.name)
+    # Markers
+    model.segments["lower_arm"].add_marker(
+        MarkerReal(name="end_effector", parent_name="lower_arm", position=np.array([0.33, 0.0, 0]))
+    )
+    model.segments["base"].add_marker(
+        MarkerReal(name="hand_start", parent_name="base", position=np.array([0.0, 0.2742, 0]))
+    )
+    model.segments["base"].add_marker(
+        MarkerReal(name="hand_end", parent_name="base", position=np.array([0.0, 0.5273, 0]))
+    )
 
-    model.update_muscle_groups()
-
-    # Remove markers
-    for segment in model.segments:
-        segment.markers = []
-
-    # Remove rotations between the scapula and the humerus frames
-    segment_to_remove_rotation =  [
-        "clavphant_offset_acromioclavicular_r2",
-        "clavphant_offset_acromioclavicular_r3",
-        "clavphant_offset_acromioclavicular_r1",
-        "scapula_reset_axis",
-    ]
-    for segment_name in segment_to_remove_rotation:
-        model.segments[segment_name].segment_coordinate_system.scs = RotoTransMatrix()
-
-    # Place the arm in T-pose
-    evelation_idx = model.dof_names.index('humphant_offset_shoulder_elv')
-    q_static = np.zeros((model.nb_q,))
-    q_static[evelation_idx] = np.pi / 2
-    model.modify_model_static_pose(q_static)
-
-    # Removing unused degrees of freedom
-    dofs_to_remove = [
-         'ground_offset_t_x',
-         'ground_offset_t_y',
-         'ground_offset_t_z',
-         'ground_offset_r_x',
-         'ground_offset_r_y',
-         'ground_offset_r_z',
-         'thorax_offset_sternoclavicular_r2',
-         'thorax_offset_sternoclavicular_r3',
-         'clavicle_offset_unrotscap_r3',
-         'clavicle_offset_unrotscap_r2',
-         'clavphant_offset_acromioclavicular_r2',
-         'clavphant_offset_acromioclavicular_r3',
-         'clavphant_offset_acromioclavicular_r1',
-         'scapula_offset_unrothum_r1',
-         'scapula_offset_unrothum_r3',
-         'scapula_offset_unrothum_r2',
-         'scapphant_offset_elv_angle',
-         'humphant_offset_shoulder_elv',
-         'humphant_offset_shoulder1_r2',
-         'humphant1_offset_shoulder_rot',
-         'ulna_offset_pro_sup',
-         'radius_offset_deviation',
-         'radius_offset_flexion'
-    ]
-    for dof_name in dofs_to_remove:
-        for segment in model.segments:
-            if dof_name in segment.dof_names:
-                segment.remove_dof(dof_name)
-
-    # # Add a shoulder dof in the right joint coordinate system
-    # model.segments["humphant_offset_shoulder_elv"].rotations = Rotations.Z
-    # model.segments["humphant_offset_shoulder_elv"].dof_names = ["shoulder_rotZ"]
-
-    # Remove more segments
-    for segment_name in model.get_chain_between_segments("scapula_translation", "scapula")[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["scapula"].parent_name = "scapula_parent_offset"
-    model.segments["scapphant_parent_offset"].segment_coordinate_system.scs.translation = np.array([0, 0, 0])
-    model.segments["scapula"].mesh_file = None
-
-    for segment_name in model.get_chain_between_segments("scapphant_translation", "scapphant").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["scapphant"].parent_name = "scapphant_parent_offset"
-
-    for segment_name in model.get_chain_between_segments("humphant_translation", "humphant").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["humphant"].parent_name = "humphant_parent_offset"
-
-    for segment_name in model.get_chain_between_segments("humphant1_translation", "humphant1").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["humphant1"].parent_name = "humphant1_parent_offset"
-    model.segments["humphant1"].rotations = Rotations.Z
-    model.segments["humphant1"].dof_names = ["shoulder_rotZ"]
-
-    for segment_name in model.get_chain_between_segments("humerus_translation", "humerus").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["humerus"].parent_name = "humerus_parent_offset"
-
-    for segment_name in model.get_chain_between_segments("ulna_translation", "ulna").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["ulna"].parent_name = "ulna_parent_offset"
-    model.segments["ulna"].rotations = Rotations.Z
-    model.segments["ulna"].dof_names = ["elbow_rotZ"]
-
-    for segment_name in model.get_chain_between_segments("radius_translation", "radius").copy()[:-1]:
-        model.remove_segment(segment_name)
-    model.segments["radius"].parent_name = "radius_parent_offset"
-
-
-    # Place the zero at the shoulder center
-    global_jcs = model.forward_kinematics()
-    shoulder_position = global_jcs["humerus"][0].translation
-    model.segments["ground"].segment_coordinate_system.scs.translation -= shoulder_position
-
-
-    # Symmetrize the model
-    symmetry_tool = SymmetryTool(model, axis=Translations.Z)
-    model = symmetry_tool.symmetrize()
-
+    # Add muscles
+    model.add_muscle_group(MuscleGroupReal(
+        name="base_to_upper_arm",
+        origin_parent_name="base",
+        insertion_parent_name="upper_arm",
+        ),
+    )
+    model.muscle_groups["base_to_upper_arm"].add_muscle(
+        MuscleReal(
+            name="anterior_deltoid",
+            muscle_type=MuscleType.HILL_DE_GROOTE,
+            state_type=MuscleStateType.DEGROOTE,
+            muscle_group="base_to_upper_arm",
+            origin_position=ViaPointReal(
+                name="anterior_deltoid_origin",
+                parent_name="base",
+                muscle_name="anterior_deltoid",
+                muscle_group="base_to_upper_arm",
+                position=np.array([0.0, 0.07, 0.0]),  # Eye balled from a circle of r=0.05!
+            ),
+            insertion_position=ViaPointReal(
+                name="anterior_deltoid_insertion",
+                parent_name="upper_arm",
+                muscle_name="anterior_deltoid",
+                muscle_group="base_to_upper_arm",
+                position=np.array([0.11, 0.025, 0.0]),  # Eye balled from the CoM!
+            ),
+            optimal_length=None,
+            maximal_force=31.8 * 22,  # 31.8 N/cm2 * 22 cm2
+            tendon_slack_length= None,
+            pennation_angle= None,
+            maximal_velocity= None,
+            maximal_excitation= None,
+        ),
+    )
+    model.muscle_groups["base_to_upper_arm"].add_muscle(
+        MuscleReal(
+            name="posterior_deltoid",
+            muscle_type=MuscleType.HILL_DE_GROOTE,
+            state_type=MuscleStateType.DEGROOTE,
+            muscle_group="base_to_upper_arm",
+            origin_position=ViaPointReal(
+                name="posterior_deltoid_origin",
+                parent_name="base",
+                muscle_name="posterior_deltoid",
+                muscle_group="base_to_upper_arm",
+                position=np.array([0.0, -0.07, 0.0]),  # Eye balled from a circle of r=0.05!
+            ),
+            insertion_position=ViaPointReal(
+                name="posterior_deltoid_insertion",
+                parent_name="upper_arm",
+                muscle_name="posterior_deltoid",
+                muscle_group="base_to_upper_arm",
+                position=np.array([0.11, -0.025, 0.0]),  # Eye balled from the CoM!
+            ),
+            optimal_length=None,
+            maximal_force=31.8 * 12,  # 31.8 N/cm2 * 12 cm2
+            tendon_slack_length=None,
+            pennation_angle=None,
+            maximal_velocity=None,
+            maximal_excitation=None,
+        ),
+    )
+    model.add_muscle_group(MuscleGroupReal(
+        name="base_to_lower_arm",
+        origin_parent_name="base",
+        insertion_parent_name="lower_arm",
+        ),
+    )
+    model.muscle_groups["base_to_lower_arm"].add_muscle(
+        MuscleReal(
+            name="biceps",
+            muscle_type=MuscleType.HILL_DE_GROOTE,
+            state_type=MuscleStateType.DEGROOTE,
+            muscle_group="base_to_lower_arm",
+            origin_position=ViaPointReal(
+                name="biceps_origin",
+                parent_name="base",
+                muscle_name="biceps",
+                muscle_group="base_to_lower_arm",
+                position=np.array([-0.05, 0.05, 0.0]),  # Eye balled !
+            ),
+            insertion_position=ViaPointReal(
+                name="biceps_insertion",
+                parent_name="lower_arm",
+                muscle_name="biceps",
+                muscle_group="base_to_lower_arm",
+                position=np.array([0.05, 0.025, 0.0]),  # Eye balled !
+            ),
+            optimal_length=None,
+            maximal_force=31.8 * 5,  # 31.8 N/cm2 * 5 cm2
+            tendon_slack_length=None,
+            pennation_angle=None,
+            maximal_velocity=None,
+            maximal_excitation=None,
+        ),
+    )
+    model.muscle_groups["base_to_lower_arm"].muscles["biceps"].add_via_point(
+        ViaPointReal(
+            name="biceps_shoulder_via_point",
+            parent_name="upper_arm",
+            muscle_name="biceps",
+            muscle_group="base_to_lower_arm",
+            position=np.array([0.0, 0.07, 0.0]),  # Eye balled from a circle of r=0.05!
+        )
+    )
+    model.muscle_groups["base_to_lower_arm"].add_muscle(
+        MuscleReal(
+            name="long_triceps",
+            muscle_type=MuscleType.HILL_DE_GROOTE,
+            state_type=MuscleStateType.DEGROOTE,
+            muscle_group="base_to_lower_arm",
+            origin_position=ViaPointReal(
+                name="long_triceps_origin",
+                parent_name="base",
+                muscle_name="long_triceps",
+                muscle_group="base_to_lower_arm",
+                position=np.array([-0.05, -0.05, 0.0]),  # Eye balled !
+            ),
+            insertion_position=ViaPointReal(
+                name="long_triceps_insertion",
+                parent_name="lower_arm",
+                muscle_name="long_triceps",
+                muscle_group="base_to_lower_arm",
+                position=np.array([0.05, -0.025, 0.0]),  # Eye balled !
+            ),
+            optimal_length=None,
+            maximal_force=31.8 * 10,  # 31.8 N/cm2 * 10 cm2
+            tendon_slack_length=None,
+            pennation_angle=None,
+            maximal_velocity=None,
+            maximal_excitation=None,
+        ),
+    )
+    model.muscle_groups["base_to_lower_arm"].muscles["long_triceps"].add_via_point(
+        ViaPointReal(
+            name="long_triceps_via_point",
+            parent_name="upper_arm",
+            muscle_name="long_triceps",
+            muscle_group="base_to_lower_arm",
+            position=np.array([0.0, -0.07, 0.0]),  # Eye balled from a circle of r=0.05!
+        )
+    )
+    model.muscle_groups["base_to_lower_arm"].muscles["long_triceps"].add_via_point(
+        ViaPointReal(
+            name="long_triceps_via_point",
+            parent_name="lower_arm",
+            muscle_name="long_triceps",
+            muscle_group="base_to_lower_arm",
+            position=np.array([0.0, -0.025, 0.0]),  # Eye balled from a circle of r=0.05!
+        )
+    )
+    model.add_muscle_group(MuscleGroupReal(
+        name="upper_arm_to_lower_arm",
+        origin_parent_name="upper_arm",
+        insertion_parent_name="lower_arm",
+        ),
+    )
+    model.muscle_groups["upper_arm_to_lower_arm"].add_muscle(
+        MuscleReal(
+            name="brachialis",
+            muscle_type=MuscleType.HILL_DE_GROOTE,
+            state_type=MuscleStateType.DEGROOTE,
+            muscle_group="upper_arm_to_lower_arm",
+            origin_position=ViaPointReal(
+                name="brachialis_origin",
+                parent_name="upper_arm",
+                muscle_name="brachialis",
+                muscle_group="upper_arm_to_lower_arm",
+                position=np.array([0.11, 0.025, 0.0]),  # Eye balled from the CoM!
+            ),
+            insertion_position=ViaPointReal(
+                name="brachialis_insertion",
+                parent_name="lower_arm",
+                muscle_name="brachialis",
+                muscle_group="upper_arm_to_lower_arm",
+                position=np.array([0.025, 0.025, 0.0]),  # Eye balled !
+            ),
+            optimal_length=None,
+            maximal_force=31.8 * 18,  # 31.8 N/cm2 * 18 cm2
+            tendon_slack_length=None,
+            pennation_angle=None,
+            maximal_velocity=None,
+            maximal_excitation=None,
+        ),
+    )
+    model.muscle_groups["upper_arm_to_lower_arm"].add_muscle(
+        MuscleReal(
+            name="lateral_triceps",
+            muscle_type=MuscleType.HILL_DE_GROOTE,
+            state_type=MuscleStateType.DEGROOTE,
+            muscle_group="upper_arm_to_lower_arm",
+            origin_position=ViaPointReal(
+                name="lateral_triceps_origin",
+                parent_name="upper_arm",
+                muscle_name="lateral_triceps",
+                muscle_group="upper_arm_to_lower_arm",
+                position=np.array([0.11, -0.025, 0.0]),  # Eye balled from the CoM!
+            ),
+            insertion_position=ViaPointReal(
+                name="lateral_triceps_insertion",
+                parent_name="lower_arm",
+                muscle_name="lateral_triceps",
+                muscle_group="upper_arm_to_lower_arm",
+                position=np.array([0.025, -0.025, 0.0]),  # Eye balled !
+            ),
+            optimal_length=None,
+            maximal_force=31.8 * 14,  # 31.8 N/cm2 * 14 cm2
+            tendon_slack_length=None,
+            pennation_angle=None,
+            maximal_velocity=None,
+            maximal_excitation=None,
+        ),
+    )
+    model.muscle_groups["upper_arm_to_lower_arm"].muscles["lateral_triceps"].add_via_point(
+        ViaPointReal(
+            name="lateral_triceps_via_point",
+            parent_name="lower_arm",
+            muscle_name="lateral_triceps",
+            muscle_group="upper_arm_to_lower_arm",
+            position=np.array([0.0, -0.025, 0.0]),  # Eye balled from a circle of r=0.05!
+        )
+    )
 
     # And convert it to a .bioMod file
     model.to_biomod(biomod_filepath, with_mesh=visualization_flag)
