@@ -209,3 +209,7 @@ __marimo__/
 .idea/
 
 literature/
+
+ReachingLearning/StochasticOptimalControl/models/arm26.bioMod
+
+ReachingLearning/StochasticOptimalControl/models/arm26.osim
