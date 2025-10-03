@@ -1,6 +1,7 @@
 """
 This file contains the model used in the article.
 """
+
 import casadi as cas
 import numpy as np
 from typing import Callable
@@ -289,4 +290,3 @@ class ArmModel:
         hand_vel = self.end_effector_velocity(q, qdot)
         ee = cas.vertcat(hand_pos, hand_vel)
         return ee
-

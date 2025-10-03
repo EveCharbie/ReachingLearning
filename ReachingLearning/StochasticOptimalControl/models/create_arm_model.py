@@ -34,22 +34,18 @@ def find_via_point_that_matches_lever_arm():
     return
 
 
-
 def main():
     # Configure logging
     logging.basicConfig(
         level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler()
-        ],
+        handlers=[logging.StreamHandler()],
     )
 
     visualization_flag = True
 
     # Paths
     biomod_filepath = "arm_model.bioMod"
-
 
     # Create a model holder
     model = BiomechanicalModelReal()
@@ -61,52 +57,44 @@ def main():
         SegmentReal(
             name="upper_arm",
             parent_name="base",
-            rotations = Rotations.Z,
+            rotations=Rotations.Z,
             dof_names=["shoulder_angle"],
-            q_ranges = RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi/2]),
-            segment_coordinate_system=SegmentCoordinateSystemReal(
-                scs=RotoTransMatrix(), is_scs_local=True
-            ),
+            q_ranges=RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi / 2]),
+            segment_coordinate_system=SegmentCoordinateSystemReal(scs=RotoTransMatrix(), is_scs_local=True),
             inertia_parameters=InertiaParametersReal(
-                mass=1.4,
-                center_of_mass=np.array([0.11, 0, 0]),
-                inertia=np.array([0, 0, 0.025])
+                mass=1.4, center_of_mass=np.array([0.11, 0, 0]), inertia=np.array([0, 0, 0.025])
             ),
             mesh_file=MeshFileReal(
                 mesh_file_name="mesh_cleaned/humerus.vtp",
-                mesh_scale = None,
-                mesh_rotation = np.array([0, 0, np.pi/2]),
-                mesh_translation = None,
+                mesh_scale=None,
+                mesh_rotation=np.array([0, 0, np.pi / 2]),
+                mesh_translation=None,
             ),
         )
     )
 
     scs_lower_arm = RotoTransMatrix()
     scs_lower_arm.from_euler_angles_and_translation(
-                        angle_sequence="xyz",
-                        angles=np.array([0, 0, 0]),
-                        translation=np.array([0.3, 0, 0]),
-                    )
+        angle_sequence="xyz",
+        angles=np.array([0, 0, 0]),
+        translation=np.array([0.3, 0, 0]),
+    )
     model.add_segment(
         SegmentReal(
             name="lower_arm",
             parent_name="upper_arm",
-            rotations = Rotations.Z,
+            rotations=Rotations.Z,
             dof_names=["elbow_angle"],
-            q_ranges = RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi]),
-            segment_coordinate_system=SegmentCoordinateSystemReal(
-                scs=scs_lower_arm, is_scs_local=True
-            ),
+            q_ranges=RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi]),
+            segment_coordinate_system=SegmentCoordinateSystemReal(scs=scs_lower_arm, is_scs_local=True),
             inertia_parameters=InertiaParametersReal(
-                mass=1.0,
-                center_of_mass=np.array([0.16, 0, 0]),
-                inertia=np.array([0, 0, 0.045])
+                mass=1.0, center_of_mass=np.array([0.16, 0, 0]), inertia=np.array([0, 0, 0.045])
             ),
             mesh_file=MeshFileReal(
                 mesh_file_name="mesh_cleaned/radius.vtp",
-                mesh_scale = None,
-                mesh_rotation = np.array([0, 0+0.1, np.pi/2-0.1]),
-                mesh_translation = None,
+                mesh_scale=None,
+                mesh_rotation=np.array([0, 0 + 0.1, np.pi / 2 - 0.1]),
+                mesh_translation=None,
             ),
         )
     )
@@ -123,10 +111,11 @@ def main():
     )
 
     # Add muscles
-    model.add_muscle_group(MuscleGroupReal(
-        name="base_to_upper_arm",
-        origin_parent_name="base",
-        insertion_parent_name="upper_arm",
+    model.add_muscle_group(
+        MuscleGroupReal(
+            name="base_to_upper_arm",
+            origin_parent_name="base",
+            insertion_parent_name="upper_arm",
         ),
     )
     model.muscle_groups["base_to_upper_arm"].add_muscle(
@@ -151,10 +140,10 @@ def main():
             ),
             optimal_length=None,
             maximal_force=31.8 * 22,  # 31.8 N/cm2 * 22 cm2
-            tendon_slack_length= None,
-            pennation_angle= None,
-            maximal_velocity= None,
-            maximal_excitation= None,
+            tendon_slack_length=None,
+            pennation_angle=None,
+            maximal_velocity=None,
+            maximal_excitation=None,
         ),
     )
     model.muscle_groups["base_to_upper_arm"].add_muscle(
@@ -185,10 +174,11 @@ def main():
             maximal_excitation=None,
         ),
     )
-    model.add_muscle_group(MuscleGroupReal(
-        name="base_to_lower_arm",
-        origin_parent_name="base",
-        insertion_parent_name="lower_arm",
+    model.add_muscle_group(
+        MuscleGroupReal(
+            name="base_to_lower_arm",
+            origin_parent_name="base",
+            insertion_parent_name="lower_arm",
         ),
     )
     model.muscle_groups["base_to_lower_arm"].add_muscle(
@@ -274,10 +264,11 @@ def main():
             position=np.array([0.0, -0.025, 0.0]),  # Eye balled from a circle of r=0.05!
         )
     )
-    model.add_muscle_group(MuscleGroupReal(
-        name="upper_arm_to_lower_arm",
-        origin_parent_name="upper_arm",
-        insertion_parent_name="lower_arm",
+    model.add_muscle_group(
+        MuscleGroupReal(
+            name="upper_arm_to_lower_arm",
+            origin_parent_name="upper_arm",
+            insertion_parent_name="lower_arm",
         ),
     )
     model.muscle_groups["upper_arm_to_lower_arm"].add_muscle(
@@ -354,7 +345,6 @@ def main():
 
         animation = pyorerun.LiveModelAnimation(biomod_filepath, with_q_charts=True)
         animation.rerun()
-
 
 
 if __name__ == "__main__":

@@ -8,7 +8,6 @@ from .deterministic_arm_model import DeterministicArmModel
 from ..utils import RK4
 
 
-
 def get_forward_dynamics_func(model):
 
     x = cas.MX.sym("x", 10)
@@ -63,15 +62,16 @@ def get_forward_dynamics_func(model):
     )
     return casadi_dynamics
 
+
 def plot_ocp(
-        variable_data: dict[str, np.ndarray],
-        motor_noise_std: float,
-        hand_initial_position: np.ndarray,
-        hand_final_position: np.ndarray,
-        force_field_magnitude: float,
-        n_shooting: int,
-        final_time: float,
-        n_simulations: int = 100,
+    variable_data: dict[str, np.ndarray],
+    motor_noise_std: float,
+    hand_initial_position: np.ndarray,
+    hand_final_position: np.ndarray,
+    force_field_magnitude: float,
+    n_shooting: int,
+    final_time: float,
+    n_simulations: int = 100,
 ):
 
     q_sol = variable_data["q_sol"]
@@ -112,9 +112,7 @@ def plot_ocp(
                 mus_activation_simulated[i_simulation, :, i_node],
             )
             hand_pos_simulated[i_simulation, :, i_node] = np.reshape(hand_pos_fcn(x_prev[:2])[:2], (2,))
-            hand_vel_simulated[i_simulation, :, i_node] = np.reshape(
-                hand_vel_fcn(x_prev[:2], x_prev[2:4])[:2], (2,)
-            )
+            hand_vel_simulated[i_simulation, :, i_node] = np.reshape(hand_vel_fcn(x_prev[:2], x_prev[2:4])[:2], (2,))
             u = cas.vertcat(excitations_sol[:, i_node], tau_sol[:, i_node])
             x_next = RK4(x_prev, u, dt_actual, motor_noise[:, i_node], forward_dyn_func, n_steps=5)
             q_simulated[i_simulation, :, i_node + 1] = np.reshape(x_next[-1, :2], (2,))
@@ -164,9 +162,7 @@ def plot_ocp(
     hand_vel_without_noise = np.zeros((2, n_shooting + 1))
     for i_node in range(n_shooting + 1):
         hand_pos_without_noise[:, i_node] = np.reshape(hand_pos_fcn(q_sol[:, i_node])[:2], (2,))
-        hand_vel_without_noise[:, i_node] = np.reshape(
-            hand_vel_fcn(q_sol[:, i_node], qdot_sol[:, i_node])[:2], (2,)
-        )
+        hand_vel_without_noise[:, i_node] = np.reshape(hand_vel_fcn(q_sol[:, i_node], qdot_sol[:, i_node])[:2], (2,))
 
     axs[0, 0].plot(hand_pos_without_noise[0, :], hand_pos_without_noise[1, :], color="k")
     axs[0, 0].plot(hand_initial_position[0], hand_initial_position[1], color="tab:green", marker="o", markersize=2)

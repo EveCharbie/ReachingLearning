@@ -4,11 +4,11 @@ from ..utils import ExampleType
 
 
 def animate_ocp(
-        example_type,
-        final_time,
-        n_shooting,
-        q_sol,
-        excitations_sol,
+    example_type,
+    final_time,
+    n_shooting,
+    q_sol,
+    excitations_sol,
 ):
     import pyorerun
 
@@ -40,10 +40,7 @@ def animate_ocp(
     marker_trajectories = pyorerun.MarkerTrajectories(marker_names=["end_effector"], nb_frames=None)
 
     # Add the kinematics
-    viz.add_animated_model(
-        model, q_sol, muscle_activations_intensity=pyoemg, marker_trajectories=marker_trajectories
-    )
+    viz.add_animated_model(model, q_sol, muscle_activations_intensity=pyoemg, marker_trajectories=marker_trajectories)
 
     # Play
     viz.rerun("OCP solution")
-

@@ -3,9 +3,10 @@ import numpy as np
 
 from ..models.arm_model import ArmModel
 
-    
+
 def skip(*args, **kwargs):
     pass
+
 
 class DeterministicArmModel(ArmModel):
     def __init__(
@@ -21,9 +22,9 @@ class DeterministicArmModel(ArmModel):
         self.sensory_reference = self.end_effector_pos_velo
 
     def dynamics(
-            self,
-            x,
-            u,
+        self,
+        x,
+        u,
     ) -> cas.Function:
         """
         OCP dynamics
@@ -73,5 +74,3 @@ class DeterministicArmModel(ArmModel):
         dxdt = cas.vertcat(dq_computed, dqdot_computed)
 
         return dxdt
-
-

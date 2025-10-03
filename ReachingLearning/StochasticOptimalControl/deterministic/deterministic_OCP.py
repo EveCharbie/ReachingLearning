@@ -9,11 +9,11 @@ def declare_variables(n_shooting):
     x = []
     u = []
     for i_node in range(n_shooting + 1):
-        q_i = cas.MX.sym(f'q_{i_node}', 2)
-        qdot_i = cas.MX.sym(f'qdot_{i_node}', 2)
+        q_i = cas.MX.sym(f"q_{i_node}", 2)
+        qdot_i = cas.MX.sym(f"qdot_{i_node}", 2)
         x += [cas.vertcat(q_i, qdot_i)]
         if i_node < n_shooting:
-            muscle_i = cas.MX.sym(f'muscle_{i_node}', 6)
+            muscle_i = cas.MX.sym(f"muscle_{i_node}", 6)
             u += [muscle_i]
     return x, u
 
@@ -32,18 +32,18 @@ def declare_dynamics_equation(model, x, u, final_time, n_shooting):
 
     # Dynamics
     xdot = model.dynamics(x, u)
-    dynamics_func = cas.Function(f'dynamics', [x, u], [xdot], ['x', 'u'], ['xdot'])
+    dynamics_func = cas.Function(f"dynamics", [x, u], [xdot], ["x", "u"], ["xdot"])
 
     # Integrator
     dt = final_time / n_shooting / n_steps
     x_next = x
     for j in range(n_steps):
         k1 = dynamics_func(x_next, u)
-        k2 = dynamics_func(x_next + dt/2 * k1, u)
-        k3 = dynamics_func(x_next + dt/2 * k2, u)
+        k2 = dynamics_func(x_next + dt / 2 * k1, u)
+        k3 = dynamics_func(x_next + dt / 2 * k2, u)
         k4 = dynamics_func(x_next + dt * k3, u)
-        x_next += dt / 6 * (k1 + 2*k2 + 2*k3 + k4)
-    integration_func = cas.Function('F', [x, u], [x_next],['x','u'],['x_next'])
+        x_next += dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+    integration_func = cas.Function("F", [x, u], [x_next], ["x", "u"], ["x_next"])
     return dynamics_func, integration_func
 
 
@@ -79,7 +79,7 @@ def prepare_ocp(
     ubg = []
 
     # "Lift" initial conditions
-    Xk = MX.sym('X0', 2)
+    Xk = MX.sym("X0", 2)
     w += [Xk]
     lbw += [0, 1]
     ubw += [0, 1]
@@ -88,36 +88,36 @@ def prepare_ocp(
     # Formulate the NLP
     for k in range(n_shooting):
         # New NLP variable for the control
-        Uk = MX.sym('U_' + str(k))
-        w   += [Uk]
+        Uk = MX.sym("U_" + str(k))
+        w += [Uk]
         lbw += [-1]
         ubw += [1]
-        w0  += [0]
+        w0 += [0]
 
         # Integrate till the end of the interval
         Fk = F(x0=Xk, p=Uk)
-        Xk_end = Fk['xf']
-        J=J+Fk['qf']
+        Xk_end = Fk["xf"]
+        J = J + Fk["qf"]
 
         # New NLP variable for state at end of interval
-        Xk = MX.sym('X_' + str(k+1), 2)
-        w   += [Xk]
+        Xk = MX.sym("X_" + str(k + 1), 2)
+        w += [Xk]
         lbw += [-0.25, -inf]
-        ubw += [  inf,  inf]
-        w0  += [0, 0]
+        ubw += [inf, inf]
+        w0 += [0, 0]
 
         # Add equality constraint
-        g   += [Xk_end-Xk]
+        g += [Xk_end - Xk]
         lbg += [0, 0]
         ubg += [0, 0]
 
     # Create an NLP solver
-    prob = {'f': J, 'x': cas.vertcat(*w), 'g': cas.vertcat(*g)}
-    solver = cas.nlpsol('solver', 'ipopt', prob)
+    prob = {"f": J, "x": cas.vertcat(*w), "g": cas.vertcat(*g)}
+    solver = cas.nlpsol("solver", "ipopt", prob)
 
     # Solve the NLP
     sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-    w_opt = sol['x'].full().flatten()
+    w_opt = sol["x"].full().flatten()
 
     # Plot the solution
     x1_opt = w_opt[0::3]

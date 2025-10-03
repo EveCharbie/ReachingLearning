@@ -83,4 +83,3 @@ def save_ocp(sol_ocp, save_path_ocp: str, tol: float):
         "time": data["time"],
     }
     return variable_data
-
