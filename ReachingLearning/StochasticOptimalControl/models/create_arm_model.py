@@ -375,7 +375,7 @@ def main():
     # Get the states to consider for the optimization
     nb_states = 100
     q = np.zeros((model.nb_q, nb_states))
-    q[0, :] = np.linspace(0, np.pi/2, nb_states)
+    q[0, :] = np.linspace(0, np.pi / 2, nb_states)
     q[1, :] = np.linspace(0, np.pi, nb_states)
 
     # Save the model
@@ -386,7 +386,6 @@ def main():
 
         animation = pyorerun.LiveModelAnimation(biomod_filepath, with_q_charts=True)
         animation.rerun()
-
 
 
 if __name__ == "__main__":
