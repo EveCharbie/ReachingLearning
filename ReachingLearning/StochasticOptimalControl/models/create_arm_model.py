@@ -3,7 +3,7 @@ This file was used to create the arm model used in the reaching learning example
 
 Originally, I wanted to match the lever arm from Li & Todorov 2004, but I think it is not geometrically possible.
 So instead, the model was eye-balled, making sure the lever arm do not cross zero.
-The muscle optimal length were set to the length at shoulder = 45° and elbow = 90°.
+The muscle optimal length were set to the length at shoulder = 45° and elbow = 90° (we do not consider tendon).
 """
 
 import logging
@@ -356,6 +356,26 @@ def get_joint_position(model: BiomechanicalModelReal, q: np.ndarray, nb_states: 
     return shoulder_position, elbow_position, global_rt
 
 
+def modify_muscle_optimal_length(model: BiomechanicalModelReal, q_opt: np.ndarray):
+    muscle_length = model.muscle_tendon_length("brachialis", q_opt)
+    model.muscle_groups["upper_arm_to_lower_arm"].muscles["brachialis"].optimal_length = muscle_length
+
+    muscle_length = model.muscle_tendon_length("lateral_triceps", q_opt)
+    model.muscle_groups["upper_arm_to_lower_arm"].muscles["lateral_triceps"].optimal_length = muscle_length
+
+    muscle_length = model.muscle_tendon_length("anterior_deltoid", q_opt)
+    model.muscle_groups["base_to_upper_arm"].muscles["anterior_deltoid"].optimal_length = muscle_length
+
+    muscle_length = model.muscle_tendon_length("posterior_deltoid", q_opt)
+    model.muscle_groups["base_to_upper_arm"].muscles["posterior_deltoid"].optimal_length = muscle_length
+
+    muscle_length = model.muscle_tendon_length("biceps", q_opt)
+    model.muscle_groups["base_to_lower_arm"].muscles["biceps"].optimal_length = muscle_length
+
+    muscle_length = model.muscle_tendon_length("long_triceps", q_opt)
+    model.muscle_groups["base_to_lower_arm"].muscles["long_triceps"].optimal_length = muscle_length
+    return model
+
 def main():
     # Configure logging
     logging.basicConfig(
@@ -373,10 +393,10 @@ def main():
     model = create_initial_model()
 
     # Get the states to consider for the optimization
-    nb_states = 100
-    q = np.zeros((model.nb_q, nb_states))
-    q[0, :] = np.linspace(0, np.pi / 2, nb_states)
-    q[1, :] = np.linspace(0, np.pi, nb_states)
+    q_opt = np.array([np.pi / 4, np.pi / 2])
+
+    # Change muscle parameters
+    model = modify_muscle_optimal_length(model,q_opt)
 
     # Save the model
     model.to_biomod(biomod_filepath)
