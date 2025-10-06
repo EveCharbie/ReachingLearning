@@ -1,0 +1,257 @@
+version 4
+
+
+
+
+// --------------------------------------------------------------
+// SEGMENTS
+// --------------------------------------------------------------
+
+segment	root
+	parent	base
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	base
+	parent	root
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+marker	hand_start
+	parent	base
+	position	0.00000000	0.27420000	0.00000000
+	technical	1
+	anatomical	0
+endmarker
+marker	hand_end
+	parent	base
+	position	0.00000000	0.52730000	0.00000000
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	upper_arm
+	parent	base
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	z
+	rangesQ 
+		0.000000	1.570796
+
+	mass	1.4
+	CenterOfMass	0.110000	0.000000	0.000000
+	inertia
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.025000
+	meshfile	mesh_cleaned/humerus.vtp
+	meshscale	1.0	1.0	1.0
+	meshrt	0.0	0.0	1.5707963267948966	xyz	0.0	0.0	0.0
+endsegment
+
+
+
+segment	lower_arm
+	parent	upper_arm
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.300000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	z
+	rangesQ 
+		0.000000	3.141593
+
+	mass	1.0
+	CenterOfMass	0.160000	0.000000	0.000000
+	inertia
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.045000
+	meshfile	mesh_cleaned/radius.vtp
+	meshscale	1.0	1.0	1.0
+	meshrt	0.0	0.1	1.4707963267948965	xyz	0.0	0.0	0.0
+endsegment
+
+marker	end_effector
+	parent	lower_arm
+	position	0.33000000	0.00000000	0.00000000
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+// --------------------------------------------------------------
+// MUSCLES
+// --------------------------------------------------------------
+
+musclegroup	upper_arm_to_lower_arm
+	OriginParent	upper_arm
+	InsertionParent	lower_arm
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	brachialis
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	upper_arm_to_lower_arm
+	originposition	0.11	0.03	0.0
+	insertionposition	0.025	0.015	0.0
+	optimallength	0.1751
+	maximalforce	572.4000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	lateral_triceps
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	upper_arm_to_lower_arm
+	originposition	0.11	-0.025	0.0
+	insertionposition	0.035	-0.015	0.0
+	optimallength	0.2791
+	maximalforce	445.2000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	lateral_triceps_via_point_1
+	parent	lower_arm
+	muscle	lateral_triceps
+	musclegroup	upper_arm_to_lower_arm
+	position	-0.025	-0.025	0.0
+endviapoint
+
+
+viapoint	lateral_triceps_via_point_2
+	parent	lower_arm
+	muscle	lateral_triceps
+	musclegroup	upper_arm_to_lower_arm
+	position	0.025	-0.025	0.0
+endviapoint
+
+
+
+musclegroup	base_to_upper_arm
+	OriginParent	base
+	InsertionParent	upper_arm
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	anterior_deltoid
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	base_to_upper_arm
+	originposition	-0.015	0.04	0.0
+	insertionposition	0.11	0.015	0.0
+	optimallength	0.0954
+	maximalforce	699.6000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	posterior_deltoid
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	base_to_upper_arm
+	originposition	0.015	-0.04	0.0
+	insertionposition	0.11	-0.015	0.0
+	optimallength	0.1299
+	maximalforce	381.6000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	base_to_lower_arm
+	OriginParent	base
+	InsertionParent	lower_arm
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	biceps
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	base_to_lower_arm
+	originposition	-0.04	0.01	0.0
+	insertionposition	0.05	0.015	0.0
+	optimallength	0.3075
+	maximalforce	159.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	biceps_shoulder_via_point
+	parent	base
+	muscle	biceps
+	musclegroup	base_to_lower_arm
+	position	-0.03	0.03	0.0
+endviapoint
+
+
+muscle	long_triceps
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	base_to_lower_arm
+	originposition	-0.04	-0.03	0.0
+	insertionposition	0.07	-0.015	0.0
+	optimallength	0.4868
+	maximalforce	318.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	long_triceps_shoulder_via_point
+	parent	base
+	muscle	long_triceps
+	musclegroup	base_to_lower_arm
+	position	0.015	-0.04	0.0
+endviapoint
+
+
+viapoint	long_triceps_elbow_via_point_1
+	parent	lower_arm
+	muscle	long_triceps
+	musclegroup	base_to_lower_arm
+	position	-0.028	-0.015	0.0
+endviapoint
+
+
+viapoint	long_triceps_elbow_via_point_2
+	parent	lower_arm
+	muscle	long_triceps
+	musclegroup	base_to_lower_arm
+	position	0.028	-0.015	0.0
+endviapoint
+
+
+
+
+
+
