@@ -1,5 +1,6 @@
 import pickle
 from datetime import datetime
+import os
 
 import casadi as cas
 import numpy as np
@@ -7,14 +8,13 @@ import numpy as np
 from ReachingLearning import (
     ExampleType,
     solve,
+    get_print_tol,
     prepare_ocp,
     save_ocp,
-    # load_variable_data_ocp,
-    # plot_ocp,
+    plot_ocp,
     # animate_ocp,
     # prepare_basic_socp,
     # save_basic_socp,
-    # get_print_tol,
 )
 
 
@@ -38,73 +38,59 @@ final_time = 0.8
 n_shooting = int(final_time / dt)
 tol = 1e-6
 
-hand_initial_position = np.array([0.0, 0.2742])  # Directly from Tom's version
-hand_final_position = np.array([9.359873986980460e-12, 0.527332023564034])  # Directly from Tom's version
-
-motor_noise_std = 0.1
+motor_noise_std = 0.01
 wPq_std = 3e-4
 wPqdot_std = 0.0024
 
-# # Solver parameters
-# # solver = Solver.IPOPT(show_online_optim=True, show_options=dict(show_bounds=True))
-# # solver = Solver.IPOPT(online_optim=OnlineOptim.SERVER, show_options=dict(show_bounds=True))
-# solver = Solver.IPOPT(show_online_optim=False)
 # solver.set_linear_solver("ma97")
 # solver.set_bound_frac(1e-8)
 # solver.set_bound_push(1e-8)
-# solver.set_maximum_iterations(50000)
 
 # --- Run the deterministic --- #
-save_path_ocp = f"../results/ocp_forcefield{force_field_magnitude}_{example_type.value}.pkl"
+save_path_ocp = f"../results/StochasticOptimalControl/ocp_forcefield{force_field_magnitude}_{example_type.value}.pkl"
+
+ocp = prepare_ocp(
+    final_time=final_time,
+    n_shooting=n_shooting,
+    example_type=example_type,
+    force_field_magnitude=force_field_magnitude,
+)
 
 if RUN_OCP:
-    ocp = prepare_ocp(
-        final_time=final_time,
-        n_shooting=n_shooting,
-        hand_final_position=hand_final_position,
-        example_type=example_type,
-        force_field_magnitude=force_field_magnitude,
+    print("\nSolving OCP............................................................................................\n")
+    w_opt, solver = solve(ocp)
+    variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
+else:
+    ocp_print_tol = get_print_tol(tol)
+    save_path_ocp = save_path_ocp.replace(".pkl", f"_CVG_{ocp_print_tol}.pkl")
+    if not os.path.exists(save_path_ocp):
+        raise FileNotFoundError(f"The file {save_path_ocp} does not exist, please run the optimization first.")
+
+    with open(save_path_ocp, "rb") as file:
+        variable_data = pickle.load(file)
+
+
+if PLOT_FLAG:
+    plot_ocp(
+        variable_data,
+        ocp,
+        motor_noise_std,
+        force_field_magnitude,
+        save_path_ocp,
+        n_simulations=30,
     )
-    # ocp.add_plot_penalty()
-    # ocp.add_plot_check_conditioning()
-    # ocp.add_plot_ipopt_outputs()
 
-    w_opt = solve(ocp)
 
-    # ocp_tol = 1e-8
-    # solver.set_tol(ocp_tol)
-    # print("\nSolving OCP............................................................................................\n")
-    # sol_ocp = ocp.solve(solver=solver)
-    #
-    # sol_ocp.print_cost()
-    #
-    variable_data = save_ocp(w_opt, save_path_ocp, tol)
-
-# else:
-#     variable_data = load_variable_data(save_path_ocp, tol)
-
-# if PLOT_FLAG:
-#     plot_ocp(
-#         variable_data,
-#         motor_noise_std,
-#         hand_initial_position,
-#         hand_final_position,
-#         force_field_magnitude,
-#         n_shooting,
-#         final_time,
-#         n_simulations=100,
-#     )
-#
-# if ANIMATE_FLAG:
-#     q_sol = variable_data["q_sol"]
-#     excitations_sol = variable_data["excitations_sol"]
-#     animate_ocp(
-#         example_type,
-#         final_time,
-#         n_shooting,
-#         q_sol,
-#         excitations_sol,
-#     )
+if ANIMATE_FLAG:
+    q_sol = variable_data["q_sol"]
+    excitations_sol = variable_data["excitations_sol"]
+    animate_ocp(
+        example_type,
+        final_time,
+        n_shooting,
+        q_sol,
+        excitations_sol,
+    )
 #
 #
 # # --- Run the SOCP --- #

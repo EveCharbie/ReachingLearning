@@ -2,126 +2,113 @@ import casadi as cas
 import matplotlib.pyplot as plt
 import numpy as np
 
-from bioptim import Solution, SolutionMerge, OptimalControlProgram
-
-from .deterministic_arm_model import DeterministicArmModel
-from ..utils import RK4
+from ..utils import get_target_position, get_dm_value
 
 
-def get_forward_dynamics_func(model):
+OCP_color = "#5DC962"
 
-    x = cas.MX.sym("x", 10)
-    q = x[:2]
-    qdot = x[2:4]
-    mus_activations = x[4:]
-    u = cas.MX.sym("u", 8)
-    mus_excitations = u[:6]
-    tau_residuals = u[6:]
-    motor_noise = cas.MX.sym("motor_noise", 2)
+def hand_position(ocp, q):
+    hand_pos = get_dm_value(ocp["model"].end_effector_position, [q])
+    return np.reshape(hand_pos[:2], (2,))
 
-    muscles_tau = model.get_muscle_torque(q, qdot, mus_activations)
+def hand_velocity(ocp, q, qdot):
+    hand_velo = get_dm_value(ocp["model"].end_effector_velocity, [q, qdot])
+    return np.reshape(hand_velo[:2], (2,))
 
-    tau_force_field = model.force_field(q, model.force_field_magnitude)
+def plot_variables(variable_data, ocp, save_path_ocp):
 
-    torques_computed = muscles_tau + tau_force_field + tau_residuals + motor_noise
+    n_shooting = ocp["n_shooting"]
 
-    dq_computed = qdot
-    dactivations_computed = (mus_excitations - mus_activations) / model.tau_coef
+    # Set up the plots
+    fig, axs = plt.subplots(2, 2, figsize=(6, 6))
+    axs[0, 0].set_title("Shoulder angle")
+    axs[0, 0].set_ylabel("Position [rad]")
+    axs[0, 1].set_title("Elbow angle")
+    axs[1, 0].set_ylabel("Velocity [rad/s]")
+    axs[1, 0].set_xlabel("Time [s]")
+    axs[1, 1].set_xlabel("Time [s]")
+    axs[0, 0].set_ylim([np.min(variable_data["lbq"]) - 0.1, np.max(variable_data["ubq"]) + 0.1])
+    axs[0, 1].set_ylim([np.min(variable_data["lbq"]) - 0.1, np.max(variable_data["ubq"]) + 0.1])
+    axs[1, 0].set_ylim([np.min(variable_data["lbqdot"]) - 1, np.max(variable_data["ubqdot"]) + 1])
+    axs[1, 1].set_ylim([np.min(variable_data["lbqdot"]) - 1, np.max(variable_data["ubqdot"]) + 1])
+    axs[0, 0].set_xlim([0, variable_data["time_vector"][-1]])
+    axs[0, 1].set_xlim([0, variable_data["time_vector"][-1]])
+    axs[1, 0].set_xlim([0, variable_data["time_vector"][-1]])
+    axs[1, 1].set_xlim([0, variable_data["time_vector"][-1]])
 
-    a1 = model.I1 + model.I2 + model.m2 * model.l1**2
-    a2 = model.m2 * model.l1 * model.lc2
-    a3 = model.I2
+    # Optimization variables
+    axs[0, 0].plot(variable_data["time_vector"], variable_data["q_opt"][0, :], '.', color=OCP_color)
+    axs[0, 1].plot(variable_data["time_vector"], variable_data["q_opt"][1, :], '.', color=OCP_color)
+    axs[1, 0].plot(variable_data["time_vector"], variable_data["qdot_opt"][0, :], '.', color=OCP_color)
+    axs[1, 1].plot(variable_data["time_vector"], variable_data["qdot_opt"][1, :], '.', color=OCP_color)
 
-    theta_elbow = q[1]
-    dtheta_shoulder = qdot[0]
-    dtheta_elbow = qdot[1]
+    # Reintegration
+    axs[0, 0].plot(variable_data["time_vector"], variable_data["q_integrated"][0, :], "-", linewidth=2, color=OCP_color)
+    axs[0, 1].plot(variable_data["time_vector"], variable_data["q_integrated"][1, :], "-", linewidth=2, color=OCP_color)
+    axs[1, 0].plot(variable_data["time_vector"], variable_data["qdot_integrated"][0, :], "-", linewidth=2, color=OCP_color)
+    axs[1, 1].plot(variable_data["time_vector"], variable_data["qdot_integrated"][1, :], "-", linewidth=2, color=OCP_color)
 
-    cx = type(theta_elbow)
-    mass_matrix = cx(2, 2)
-    mass_matrix[0, 0] = a1 + 2 * a2 * cas.cos(theta_elbow)
-    mass_matrix[0, 1] = a3 + a2 * cas.cos(theta_elbow)
-    mass_matrix[1, 0] = a3 + a2 * cas.cos(theta_elbow)
-    mass_matrix[1, 1] = a3
+    # Bounds
+    axs[0, 0].fill_between(variable_data["time_vector"], np.ones((n_shooting + 1, )) * -10, variable_data["lbq"][0, :], color="lightgrey")
+    axs[0, 0].fill_between(variable_data["time_vector"], variable_data["ubq"][0, :], np.ones((n_shooting + 1, )) * 10, color="lightgrey")
+    axs[0, 1].fill_between(variable_data["time_vector"], np.ones((n_shooting + 1, )) * -10, variable_data["lbq"][1, :], color="lightgrey")
+    axs[0, 1].fill_between(variable_data["time_vector"], variable_data["ubq"][1, :], np.ones((n_shooting + 1, )) * 10, color="lightgrey")
+    axs[1, 0].fill_between(variable_data["time_vector"], np.ones((n_shooting + 1, )) * -100, variable_data["lbqdot"][0, :], color="lightgrey")
+    axs[1, 0].fill_between(variable_data["time_vector"], variable_data["ubqdot"][0, :], np.ones((n_shooting + 1, )) * 100, color="lightgrey")
+    axs[1, 1].fill_between(variable_data["time_vector"], np.ones((n_shooting + 1, )) * -100, variable_data["lbqdot"][1, :], color="lightgrey")
+    axs[1, 1].fill_between(variable_data["time_vector"], variable_data["ubqdot"][1, :], np.ones((n_shooting + 1, )) * 100, color="lightgrey")
 
-    nleffects = cx(2, 1)
-    nleffects[0] = a2 * cas.sin(theta_elbow) * (-dtheta_elbow * (2 * dtheta_shoulder + dtheta_elbow))
-    nleffects[1] = a2 * cas.sin(theta_elbow) * dtheta_shoulder**2
+    plt.tight_layout()
+    save_path_fig = save_path_ocp.replace(".pkl", "_plot_variables.png").replace("/results/", "/figures/")
+    plt.savefig(save_path_fig)
+    plt.show()
+    # plt.close()
 
-    friction = model.friction_coefficients
+def plot_hand_trajectories(variable_data, ocp, n_simulations, motor_noise_std, save_path_ocp):
 
-    dqdot_computed = cas.inv(mass_matrix) @ (torques_computed - nleffects - friction @ qdot)
+    n_shooting = ocp["n_shooting"]
+    final_time = ocp["final_time"]
 
-    dxdt = cas.vertcat(dq_computed, dqdot_computed, dactivations_computed)
-
-    casadi_dynamics = cas.Function(
-        "forward_dynamics",
-        [x, u, motor_noise],
-        [cas.reshape(dxdt, (10, 1))],
-        ["x", "u", "motor_noise"],
-        ["dxdt"],
-    )
-    return casadi_dynamics
-
-
-def plot_ocp(
-    variable_data: dict[str, np.ndarray],
-    motor_noise_std: float,
-    hand_initial_position: np.ndarray,
-    hand_final_position: np.ndarray,
-    force_field_magnitude: float,
-    n_shooting: int,
-    final_time: float,
-    n_simulations: int = 100,
-):
-
-    q_sol = variable_data["q_sol"]
-    qdot_sol = variable_data["qdot_sol"]
-    activations_sol = variable_data["activations_sol"]
-    excitations_sol = variable_data["excitations_sol"]
-    tau_sol = variable_data["tau_sol"]
-
-    model = DeterministicArmModel()
-    model.force_field_magnitude = force_field_magnitude
-
-    OCP_color = "#5DC962"
-
-    model = DeterministicArmModel()
-    q_sym = cas.MX.sym("q_sym", 2, 1)
-    qdot_sym = cas.MX.sym("qdot_sym", 2, 1)
-    hand_pos_fcn = cas.Function("hand_pos", [q_sym], [model.end_effector_position(q_sym)])
-    hand_vel_fcn = cas.Function("hand_vel", [q_sym, qdot_sym], [model.end_effector_velocity(q_sym, qdot_sym)])
-    forward_dyn_func = get_forward_dynamics_func(model)
-
-    fig, axs = plt.subplots(3, 2)
+    # Reintegrate the solution with noise (for comparison with stochastic OCP)
     q_simulated = np.zeros((n_simulations, 2, n_shooting + 1))
     qdot_simulated = np.zeros((n_simulations, 2, n_shooting + 1))
-    mus_activation_simulated = np.zeros((n_simulations, 6, n_shooting + 1))
     hand_pos_simulated = np.zeros((n_simulations, 2, n_shooting + 1))
     hand_vel_simulated = np.zeros((n_simulations, 2, n_shooting + 1))
-    dt_actual = final_time / n_shooting
     for i_simulation in range(n_simulations):
+        print(f"Running OCP noised simulation {i_simulation}")
         np.random.seed(i_simulation)
-        motor_noise = np.random.normal(0, motor_noise_std, (2, n_shooting + 1))
-        q_simulated[i_simulation, :, 0] = q_sol[:, 0]
-        qdot_simulated[i_simulation, :, 0] = qdot_sol[:, 0]
-        mus_activation_simulated[i_simulation, :, 0] = activations_sol[:, 0]
+        motor_noise = np.random.normal(0, motor_noise_std, (6, n_shooting + 1))
+        q_simulated[i_simulation, :, 0] = variable_data["q_opt"][:, 0]
+        qdot_simulated[i_simulation, :, 0] = variable_data["qdot_opt"][:, 0]
         for i_node in range(n_shooting):
             x_prev = cas.vertcat(
                 q_simulated[i_simulation, :, i_node],
                 qdot_simulated[i_simulation, :, i_node],
-                mus_activation_simulated[i_simulation, :, i_node],
             )
-            hand_pos_simulated[i_simulation, :, i_node] = np.reshape(hand_pos_fcn(x_prev[:2])[:2], (2,))
-            hand_vel_simulated[i_simulation, :, i_node] = np.reshape(hand_vel_fcn(x_prev[:2], x_prev[2:4])[:2], (2,))
-            u = cas.vertcat(excitations_sol[:, i_node], tau_sol[:, i_node])
-            x_next = RK4(x_prev, u, dt_actual, motor_noise[:, i_node], forward_dyn_func, n_steps=5)
-            q_simulated[i_simulation, :, i_node + 1] = np.reshape(x_next[-1, :2], (2,))
-            qdot_simulated[i_simulation, :, i_node + 1] = np.reshape(x_next[-1, 2:4], (2,))
-            mus_activation_simulated[i_simulation, :, i_node + 1] = np.reshape(x_next[-1, 4:], (6,))
-        hand_pos_simulated[i_simulation, :, i_node + 1] = np.reshape(hand_pos_fcn(x_next[-1, :2])[:2], (2,))
-        hand_vel_simulated[i_simulation, :, i_node + 1] = np.reshape(
-            hand_vel_fcn(x_next[-1, :2], x_next[-1, 2:4])[:2], (2,)
+            x_next = ocp["integration_func"](x_prev, variable_data["muscle_opt"][:, i_node] + motor_noise[:, i_node])
+            q_simulated[i_simulation, :, i_node + 1] = np.reshape(x_next[:2, 0], (2,))
+            qdot_simulated[i_simulation, :, i_node + 1] = np.reshape(x_next[2:4, 0], (2,))
+
+            hand_pos_simulated[i_simulation, :, i_node] = hand_position(ocp, x_prev[:2])
+            hand_vel_simulated[i_simulation, :, i_node] = hand_velocity(ocp, x_prev[:2], x_prev[2:4])
+
+        x_prev = cas.vertcat(
+            q_simulated[i_simulation, :, i_node+1],
+            qdot_simulated[i_simulation, :, i_node+1],
         )
+        hand_pos_simulated[i_simulation, :, i_node+1] = hand_position(ocp, x_prev[:2])
+        hand_vel_simulated[i_simulation, :, i_node+1] = hand_velocity(ocp, x_prev[:2], x_prev[2:4])
+
+    hand_pos_without_noise = np.zeros((2, n_shooting + 1))
+    hand_vel_without_noise = np.zeros((2, n_shooting + 1))
+    for i_node in range(n_shooting + 1):
+        hand_pos_without_noise[:, i_node] = hand_position(ocp, variable_data["q_opt"][:, i_node])
+        hand_vel_without_noise[:, i_node] = hand_velocity(ocp, variable_data["q_opt"][:, i_node], variable_data["qdot_opt"][:, i_node])
+
+    hand_initial_position, hand_final_position = get_target_position(ocp["model"])
+
+    fig, axs = plt.subplots(3, 2)
+    for i_simulation in range(n_simulations):
         axs[0, 0].plot(
             hand_pos_simulated[i_simulation, 0, :],
             hand_pos_simulated[i_simulation, 1, :],
@@ -158,11 +145,6 @@ def plot_ocp(
             color=OCP_color,
             linewidth=0.5,
         )
-    hand_pos_without_noise = np.zeros((2, n_shooting + 1))
-    hand_vel_without_noise = np.zeros((2, n_shooting + 1))
-    for i_node in range(n_shooting + 1):
-        hand_pos_without_noise[:, i_node] = np.reshape(hand_pos_fcn(q_sol[:, i_node])[:2], (2,))
-        hand_vel_without_noise[:, i_node] = np.reshape(hand_vel_fcn(q_sol[:, i_node], qdot_sol[:, i_node])[:2], (2,))
 
     axs[0, 0].plot(hand_pos_without_noise[0, :], hand_pos_without_noise[1, :], color="k")
     axs[0, 0].plot(hand_initial_position[0], hand_initial_position[1], color="tab:green", marker="o", markersize=2)
@@ -170,10 +152,10 @@ def plot_ocp(
     axs[0, 0].set_xlabel("X [m]")
     axs[0, 0].set_ylabel("Y [m]")
     axs[0, 0].set_title("Hand position simulated")
-    axs[1, 0].plot(np.linspace(0, final_time, n_shooting + 1), q_sol[0, :], color="k")
+    axs[1, 0].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["q_opt"][0, :], color="k")
     axs[1, 0].set_xlabel("Time [s]")
     axs[1, 0].set_ylabel("Shoulder angle [rad]")
-    axs[2, 0].plot(np.linspace(0, final_time, n_shooting + 1), q_sol[1, :], color="k")
+    axs[2, 0].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["q_opt"][1, :], color="k")
     axs[2, 0].set_xlabel("Time [s]")
     axs[2, 0].set_ylabel("Elbow angle [rad]")
     axs[0, 1].plot(
@@ -182,14 +164,29 @@ def plot_ocp(
     axs[0, 1].set_xlabel("Time [s]")
     axs[0, 1].set_ylabel("Hand velocity [m/s]")
     axs[0, 1].set_title("Hand velocity simulated")
-    axs[1, 1].plot(np.linspace(0, final_time, n_shooting + 1), qdot_sol[0, :], color="k")
+    axs[1, 1].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["qdot_opt"][0, :], color="k")
     axs[1, 1].set_xlabel("Time [s]")
     axs[1, 1].set_ylabel("Shoulder velocity [rad/s]")
-    axs[2, 1].plot(np.linspace(0, final_time, n_shooting + 1), qdot_sol[1, :], color="k")
+    axs[2, 1].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["qdot_opt"][1, :], color="k")
     axs[2, 1].set_xlabel("Time [s]")
     axs[2, 1].set_ylabel("Elbow velocity [rad/s]")
     axs[0, 0].axis("equal")
     plt.tight_layout()
-    plt.savefig(f"figures/simulated_results_ocp_forcefield{force_field_magnitude}.png", dpi=300)
-    # plt.show()
-    plt.close()
+    save_path_fig = save_path_ocp.replace(".pkl", "_plot_hand_trajectories.png")
+    plt.savefig(save_path_fig)
+    plt.show()
+    # plt.close()
+
+def plot_ocp(
+    variable_data: dict[str, np.ndarray],
+    ocp: dict[str, any],
+    motor_noise_std: float,
+    force_field_magnitude: float,
+    save_path_ocp: str,
+    n_simulations: int = 100,
+):
+
+    # TODO: see if force_field_magnitude is implemented correctly
+    plot_variables(variable_data, ocp, save_path_ocp)
+    plot_hand_trajectories(variable_data, ocp, n_simulations, motor_noise_std, save_path_ocp)
+

@@ -2,6 +2,6 @@
 
 ## Creating an environment
 ```bash
-conda install -c conda-forge black biorbd
+conda install -c conda-forge numpy matplotlib black biorbd
 pip install gitpython
 ```

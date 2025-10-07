@@ -129,7 +129,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             maximal_force=31.8 * 18,  # 31.8 N/cm2 * 18 cm2
             tendon_slack_length=None,
             pennation_angle=None,
-            maximal_velocity=None,
+            maximal_velocity=10.0,
             maximal_excitation=None,
         ),
     )
@@ -157,7 +157,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             maximal_force=31.8 * 14,  # 31.8 N/cm2 * 14 cm2
             tendon_slack_length=None,
             pennation_angle=None,
-            maximal_velocity=None,
+            maximal_velocity=10.0,
             maximal_excitation=None,
         ),
     )
@@ -210,7 +210,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             maximal_force=31.8 * 22,  # 31.8 N/cm2 * 22 cm2
             tendon_slack_length=None,
             pennation_angle=None,
-            maximal_velocity=None,
+            maximal_velocity=10.0,
             maximal_excitation=None,
         ),
     )
@@ -238,7 +238,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             maximal_force=31.8 * 12,  # 31.8 N/cm2 * 12 cm2
             tendon_slack_length=None,
             pennation_angle=None,
-            maximal_velocity=None,
+            maximal_velocity=10.0,
             maximal_excitation=None,
         ),
     )
@@ -273,7 +273,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             maximal_force=31.8 * 5,  # 31.8 N/cm2 * 5 cm2
             tendon_slack_length=None,
             pennation_angle=None,
-            maximal_velocity=None,
+            maximal_velocity=10.0,
             maximal_excitation=None,
         ),
     )
@@ -310,7 +310,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             maximal_force=31.8 * 10,  # 31.8 N/cm2 * 10 cm2
             tendon_slack_length=None,
             pennation_angle=None,
-            maximal_velocity=None,
+            maximal_velocity=10.0,
             maximal_excitation=None,
         ),
     )

@@ -217,3 +217,7 @@ ReachingLearning/StochasticOptimalControl/models/arm26.bioMod
 ReachingLearning/StochasticOptimalControl/models/arm26.osim
 
 ReachingLearning/StochasticOptimalControl/models/trash/
+
+results/
+
+figures/

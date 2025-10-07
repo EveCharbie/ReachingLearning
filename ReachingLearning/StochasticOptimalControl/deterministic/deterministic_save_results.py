@@ -1,87 +1,130 @@
 import pickle
 import numpy as np
+from datetime import datetime
 
-from ..utils import get_git_version, get_print_tol
+from ..utils import get_print_tol
+
+
+def integrate_single_shooting(ocp: dict[str, any], q_opt: np.ndarray, qdot_opt: np.ndarray, muscle_opt: np.ndarray):
+    n_shooting = ocp["n_shooting"]
+
+    x_integrated = np.zeros((4, n_shooting + 1))
+    x_integrated[:, 0] = np.hstack((q_opt[:, 0], qdot_opt[:, 0]))
+    for i_node in range(n_shooting):
+        x_integrated[:, i_node + 1] = ocp["integration_func"](
+            x=x_integrated[:, i_node],
+            u=muscle_opt[:, i_node],
+        )['x_next'].full().flatten()
+    return x_integrated
 
 
 def save_ocp(
         w_opt: np.ndarray,
+        ocp: dict[str, any],
         save_path_ocp: str,
         tol: float,
+        solver: any,
 ):
 
-    data = {}
+    # Parse ocp
+    w0 = ocp["w0"]
+    lbw = ocp["lbw"]
+    ubw = ocp["ubw"]
+    n_shooting = ocp["n_shooting"]
+    final_time = ocp["final_time"]
 
-    # # Optimization variables
-    # data["q_sol"] = sol_ocp.decision_states(to_merge=SolutionMerge.NODES)["q"]
-    # data["qdot_sol"] = sol_ocp.decision_states(to_merge=SolutionMerge.NODES)["qdot"]
-    # data["activations_sol"] = sol_ocp.decision_states(to_merge=SolutionMerge.NODES)["muscles"]
-    # data["excitations_sol"] = sol_ocp.decision_controls(to_merge=SolutionMerge.NODES)["muscles"]
-    # data["tau_sol"] = sol_ocp.decision_controls(to_merge=SolutionMerge.NODES)["tau"]
-    # data["time"] = sol_ocp.decision_time(to_merge=SolutionMerge.NODES)  # Not optimized
-    #
-    # # Min anx max bounds
-    # data["min_bounds_q"] = sol_ocp.ocp.nlp[0].x_bounds["q"].min
-    # data["max_bounds_q"] = sol_ocp.ocp.nlp[0].x_bounds["q"].max
-    # data["min_bounds_qdot"] = sol_ocp.ocp.nlp[0].x_bounds["qdot"].min
-    # data["max_bounds_qdot"] = sol_ocp.ocp.nlp[0].x_bounds["qdot"].max
-    # data["min_activations"] = sol_ocp.ocp.nlp[0].x_bounds["muscles"].min
-    # data["max_activations"] = sol_ocp.ocp.nlp[0].x_bounds["muscles"].max
-    # data["min_excitations"] = sol_ocp.ocp.nlp[0].u_bounds["muscles"].min
-    # data["max_excitations"] = sol_ocp.ocp.nlp[0].u_bounds["muscles"].max
-    # data["min_tau"] = sol_ocp.ocp.nlp[0].u_bounds["tau"].min
-    # data["max_tau"] = sol_ocp.ocp.nlp[0].u_bounds["tau"].max
-    #
-    # # Additional infos and objectives + constraints
-    # data["status"] = sol_ocp.status
-    # data["iterations"] = sol_ocp.iterations
-    # data["total_cost"] = sol_ocp.cost
-    # data["detailed_cost"] = sol_ocp.detailed_cost
-    # # # Otherwise redirect the print output
-    # # from contextlib import redirect_stdout
-    # # with open('out.txt', 'w') as f:
-    # #     with redirect_stdout(f):
-    # #         sol.print_cost()  # TODO: but in any ways, the output of print is ofter buggy
-    # data["git_version"] = get_git_version()
-    # data["real_time_to_optimize"] = sol_ocp.real_time_to_optimize
-    # data["constraints"] = sol_ocp.constraints
-    # data["lam_g"] = sol_ocp.lam_g
-    # data["lam_p"] = sol_ocp.lam_p
-    # data["lam_x"] = sol_ocp.lam_x
-    # data["phase_time"] = sol_ocp.ocp.phase_time
-    # data["n_shooting"] = sol_ocp.ocp.n_shooting
-    # data["dof_names"] = sol_ocp.ocp.nlp[0].dof_names
-    #
-    # # Integrated states
-    # integrated_sol = sol_ocp.integrate(to_merge=SolutionMerge.NODES)
-    # data["q_integrated"] = integrated_sol["q"]
-    # data["qdot_integrated"] = integrated_sol["qdot"]
-    # data["activations_integrated"] = integrated_sol["muscles"]
-    #
-    # # Get the name of the file to save
-    # ocp_print_tol = get_print_tol(tol)
-    # if sol_ocp.status != 0:
-    #     save_path_ocp = save_path_ocp.replace(".pkl", f"_DVG_{ocp_print_tol}.pkl")
-    # else:
-    #     save_path_ocp = save_path_ocp.replace(".pkl", f"_CVG_{ocp_print_tol}.pkl")
-    #
-    # # --- Save --- #
-    # with open(save_path_ocp, "wb") as file:
-    #     pickle.dump(data, file)
-    #
-    # with open(save_path_ocp.replace(".pkl", f"_sol.pkl"), "wb") as file:
-    #     del sol_ocp.ocp
-    #     pickle.dump(sol_ocp, file)
+    # Get optimization variables
+    q_opt = []
+    q0 = []
+    lbq = []
+    ubq = []
+    qdot_opt = []
+    qdot0 = []
+    lbqdot = []
+    ubqdot = []
+    muscle_opt = []
+    muscle0 = []
+    lbmuscle = []
+    ubmuscle = []
+    offset = 0
+    for i_node in range(n_shooting + 1):
+
+        q_opt += w_opt[offset: offset + 2].tolist()
+        q0 += np.array(w0[offset: offset + 2]).flatten().tolist()
+        lbq += np.array(lbw[offset: offset + 2]).flatten().tolist()
+        ubq += np.array(ubw[offset: offset + 2]).flatten().tolist()
+        offset += 2
+
+        qdot_opt += w_opt[offset: offset + 2].tolist()
+        qdot0 += np.array(w0[offset: offset + 2]).flatten().tolist()
+        lbqdot += np.array(lbw[offset: offset + 2]).flatten().tolist()
+        ubqdot += np.array(ubw[offset: offset + 2]).flatten().tolist()
+        offset += 2
+
+        if i_node < n_shooting:
+            muscle_opt += w_opt[offset: offset + 6].tolist()
+            muscle0 += np.array(w0[offset: offset + 6]).flatten().tolist()
+            lbmuscle += np.array(lbw[offset: offset + 6]).flatten().tolist()
+            ubmuscle += np.array(ubw[offset: offset + 6]).flatten().tolist()
+            offset += 6
+
+    q_opt = np.array(q_opt).reshape(2, n_shooting + 1, order="F")
+    q0 = np.array(q0).reshape(2, n_shooting + 1, order="F")
+    lbq = np.array(lbq).reshape(2, n_shooting + 1, order="F")
+    ubq = np.array(ubq).reshape(2, n_shooting + 1, order="F")
+    qdot_opt = np.array(qdot_opt).reshape(2, n_shooting + 1, order="F")
+    qdot0 = np.array(qdot0).reshape(2, n_shooting + 1, order="F")
+    lbqdot = np.array(lbqdot).reshape(2, n_shooting + 1, order="F")
+    ubqdot = np.array(ubqdot).reshape(2, n_shooting + 1, order="F")
+    muscle_opt = np.array(muscle_opt).reshape(6, n_shooting, order="F")
+    muscle0 = np.array(muscle0).reshape(6, n_shooting, order="F")
+    lbmuscle = np.array(lbmuscle).reshape(6, n_shooting, order="F")
+    ubmuscle = np.array(ubmuscle).reshape(6, n_shooting, order="F")
+    time_vector = np.linspace(0, final_time, n_shooting + 1)
+
+    # Reintegrate the solution
+    x_integrated = integrate_single_shooting(ocp, q_opt, qdot_opt, muscle_opt)
+    q_integrated = x_integrated[0:2, :]
+    qdot_integrated = x_integrated[2:4, :]
+
+    # Other info oin the optimization process
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    computational_time = solver.stats()["t_proc_total"]
+    nb_iterations = solver.stats()["iter_count"]
+
+    # Check if the optimization converged
+    if solver.stats()["success"]:
+        status = "CVG"
+    else:
+        status = "DVG"
+    ocp_print_tol = get_print_tol(tol)
+    save_path_ocp = save_path_ocp.replace(".pkl", f"_{status}_{ocp_print_tol}.pkl")
+
+    variable_data = {
+        "q_opt": q_opt,
+        "q0": q0,
+        "lbq": lbq,
+        "ubq": ubq,
+        "q_integrated": q_integrated,
+        "qdot_opt": qdot_opt,
+        "qdot0": qdot0,
+        "lbqdot": lbqdot,
+        "ubqdot": ubqdot,
+        "qdot_integrated": qdot_integrated,
+        "muscle_opt": muscle_opt,
+        "muscle0": muscle0,
+        "lbmuscle": lbmuscle,
+        "ubmuscle": ubmuscle,
+        "time_vector": time_vector,
+        "computational_time": computational_time,
+        "nb_iterations": nb_iterations,
+        "current_time": current_time,
+    }
+
+    # --- Save --- #
+    with open(save_path_ocp, "wb") as file:
+        pickle.dump(variable_data, file)
 
     print("Saved : ", save_path_ocp)
 
-    # For the plots
-    variable_data = {
-        "q_sol": data["q_sol"],
-        "qdot_sol": data["qdot_sol"],
-        "activations_sol": data["activations_sol"],
-        "excitations_sol": data["excitations_sol"],
-        "tau_sol": data["tau_sol"],
-        "time": data["time"],
-    }
     return variable_data
