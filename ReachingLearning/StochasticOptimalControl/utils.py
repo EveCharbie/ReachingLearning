@@ -1,3 +1,4 @@
+import numpy as np
 import git
 from datetime import date
 import os
@@ -79,3 +80,44 @@ def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
         x_all[i_step + 1, :] = x_prev + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
         x_prev = x_prev + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
     return x_all
+
+def solve(
+        ocp: dict[str, any],
+        max_iter: int=1000,
+        tol: float=1e-6,
+        hessian_approximation: str= "exact",  # or "limited-memory",
+        output_file: str = None,
+) -> np.ndarray:
+    """ Solve the problem using IPOPT solver """
+
+    # Extract the problem
+    w = ocp["w"]
+    j = ocp["j"]
+    g = ocp["g"]
+    w0 = ocp["w0"]
+    lbw = ocp["lbw"]
+    ubw = ocp["ubw"]
+    lbg = ocp["lbg"]
+    ubg = ocp["ubg"]
+
+    # Set IPOPT options
+    opts = {
+        "ipopt.max_iter": max_iter,
+        "ipopt.tol": tol,
+        "ipopt.hessian_approximation": hessian_approximation,
+        "ipopt.output_file": output_file,
+    }
+
+    # Create an NLP solver
+    prob = {"f": j, "x": cas.vertcat(*w), "g": cas.vertcat(*g)}
+    solver = cas.nlpsol("solver", "ipopt", prob, opts)
+
+    # Solve the NLP
+    sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
+    w_opt = sol["x"].full().flatten()
+
+    # Check if the optimization converged
+    if sol.stats()["success"] != True:
+        print("WARNING: The solver did not converge")
+
+    return w_opt

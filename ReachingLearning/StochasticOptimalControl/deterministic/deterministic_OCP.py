@@ -53,7 +53,7 @@ def prepare_ocp(
     hand_final_position: np.ndarray,
     force_field_magnitude: float = 0,
     example_type=ExampleType.CIRCLE,
-):
+) -> dict[str, any]:
 
     # Model
     model = DeterministicArmModel(force_field_magnitude=force_field_magnitude)
@@ -79,50 +79,58 @@ def prepare_ocp(
     ubg = []
 
     # "Lift" initial conditions
-    Xk = MX.sym("X0", 2)
+    Xk = cas.MX.sym("X0", 2)
     w += [Xk]
     lbw += [0, 1]
     ubw += [0, 1]
     w0 += [0, 1]
 
-    # Formulate the NLP
-    for k in range(n_shooting):
-        # New NLP variable for the control
-        Uk = MX.sym("U_" + str(k))
-        w += [Uk]
-        lbw += [-1]
-        ubw += [1]
-        w0 += [0]
+    # # Formulate the NLP
+    # for k in range(n_shooting):
+    #     # New NLP variable for the control
+    #     Uk = cas.MX.sym("U_" + str(k))
+    #     w += [Uk]
+    #     lbw += [-1]
+    #     ubw += [1]
+    #     w0 += [0]
+    #
+    #     # Integrate till the end of the interval
+    #     Fk = F(x0=Xk, p=Uk)
+    #     Xk_end = Fk["xf"]
+    #     J = J + Fk["qf"]
+    #
+    #     # New NLP variable for state at end of interval
+    #     Xk = cas.MX.sym("X_" + str(k + 1), 2)
+    #     w += [Xk]
+    #     lbw += [-0.25, -inf]
+    #     ubw += [inf, inf]
+    #     w0 += [0, 0]
+    #
+    #     # Add equality constraint
+    #     g += [Xk_end - Xk]
+    #     lbg += [0, 0]
+    #     ubg += [0, 0]
 
-        # Integrate till the end of the interval
-        Fk = F(x0=Xk, p=Uk)
-        Xk_end = Fk["xf"]
-        J = J + Fk["qf"]
-
-        # New NLP variable for state at end of interval
-        Xk = MX.sym("X_" + str(k + 1), 2)
-        w += [Xk]
-        lbw += [-0.25, -inf]
-        ubw += [inf, inf]
-        w0 += [0, 0]
-
-        # Add equality constraint
-        g += [Xk_end - Xk]
-        lbg += [0, 0]
-        ubg += [0, 0]
-
-    # Create an NLP solver
-    prob = {"f": J, "x": cas.vertcat(*w), "g": cas.vertcat(*g)}
-    solver = cas.nlpsol("solver", "ipopt", prob)
-
-    # Solve the NLP
-    sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-    w_opt = sol["x"].full().flatten()
-
-    # Plot the solution
-    x1_opt = w_opt[0::3]
-    x2_opt = w_opt[1::3]
-    u_opt = w_opt[2::3]
+    ocp = {
+        "model": model,
+        "dynamics_func": dynamics_func,
+        "integration_func": integration_func,
+        "x": x,
+        "u": u,
+        "w": w,
+        "w0": w0,
+        "lbw": lbw,
+        "ubw": ubw,
+        "J": J,
+        "g": g,
+        "lbg": lbg,
+        "ubg": ubg,
+        "n_shooting": n_shooting,
+        "final_time": final_time,
+        "hand_final_position": hand_final_position,
+        "example_type": example_type,
+    }
+    return ocp
 
 
 # tgrid = [final_time/n_shooting*k for k in range(n_shooting+1)]

@@ -376,6 +376,7 @@ def modify_muscle_optimal_length(model: BiomechanicalModelReal, q_opt: np.ndarra
     model.muscle_groups["base_to_lower_arm"].muscles["long_triceps"].optimal_length = muscle_length
     return model
 
+
 def main():
     # Configure logging
     logging.basicConfig(
@@ -396,7 +397,7 @@ def main():
     q_opt = np.array([np.pi / 4, np.pi / 2])
 
     # Change muscle parameters
-    model = modify_muscle_optimal_length(model,q_opt)
+    model = modify_muscle_optimal_length(model, q_opt)
 
     # Save the model
     model.to_biomod(biomod_filepath)
