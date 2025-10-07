@@ -6,7 +6,9 @@ from ..constraints_utils import reach_target, start_on_target
 from .deterministic_arm_model import DeterministicArmModel
 
 
-def declare_variables(n_shooting) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
+def declare_variables(
+    n_shooting,
+) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
     """
     Declare all variables (states and controls) and their initial guess
         - q: shoulder and elbow linear interpolation
@@ -38,8 +40,8 @@ def declare_variables(n_shooting) -> tuple[list[cas.MX], list[cas.MX], list[cas.
         qdot_i = cas.MX.sym(f"qdot_{i_node}", 2)
         x += [cas.vertcat(q_i, qdot_i)]
         w += [cas.vertcat(q_i, qdot_i)]
-        lbw += [0, 0, -10*np.pi, -10*np.pi]
-        ubw += [np.pi/2, 7/8*np.pi, 10*np.pi, 10*np.pi]
+        lbw += [0, 0, -10 * np.pi, -10 * np.pi]
+        ubw += [np.pi / 2, 7 / 8 * np.pi, 10 * np.pi, 10 * np.pi]
         w0 += [joint_angles_init[0, i_node], joint_angles_init[1, i_node], 0, 0]
         if i_node < n_shooting:
             muscle_i = cas.MX.sym(f"muscle_{i_node}", 6)

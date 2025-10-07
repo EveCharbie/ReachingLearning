@@ -57,14 +57,15 @@ def get_target_position(model) -> tuple[np.ndarray, np.ndarray]:
     Get the initial and final hand position from the bioMod.
     Do not use this in the OCP as it will unnecessarily slow down the optimization (only for DM values).
     """
-    dymmy_variable = cas.MX.sym('dummy', 1)
+    dymmy_variable = cas.MX.sym("dummy", 1)
     marker_start_index = biorbd.marker_index(model.biorbd_model, "hand_start")
     marker_end_index = biorbd.marker_index(model.biorbd_model, "hand_end")
-    initial_pos = model.biorbd_model.marker(np.zeros((model.biorbd_model.nbQ(), )), marker_start_index).to_mx()[:2, 0]
-    final_pos = model.biorbd_model.marker(np.zeros((model.biorbd_model.nbQ(), )), marker_end_index).to_mx()[:2, 0]
+    initial_pos = model.biorbd_model.marker(np.zeros((model.biorbd_model.nbQ(),)), marker_start_index).to_mx()[:2, 0]
+    final_pos = model.biorbd_model.marker(np.zeros((model.biorbd_model.nbQ(),)), marker_end_index).to_mx()[:2, 0]
     func = cas.Function("hand_initial_position", [dymmy_variable], [initial_pos, final_pos])
     hand_initial_position, hand_final_position = func(0)
     return hand_initial_position, hand_final_position
+
 
 def get_dm_value(function, values):
     """
@@ -76,6 +77,7 @@ def get_dm_value(function, values):
     func = cas.Function("temp_func", variables, [function(*variables)])
     output = func(*values)
     return output
+
 
 def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
     h = dt / n_steps
@@ -107,14 +109,15 @@ def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
         x_prev = x_prev + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
     return x_all
 
+
 def solve(
-        ocp: dict[str, any],
-        max_iter: int=1000,
-        tol: float=1e-6,
-        hessian_approximation: str= "exact",  # or "limited-memory",
-        output_file: str = None,
+    ocp: dict[str, any],
+    max_iter: int = 1000,
+    tol: float = 1e-6,
+    hessian_approximation: str = "exact",  # or "limited-memory",
+    output_file: str = None,
 ) -> tuple[np.ndarray, dict[str, any]]:
-    """ Solve the problem using IPOPT solver """
+    """Solve the problem using IPOPT solver"""
 
     # Extract the problem
     w = ocp["w"]

@@ -11,19 +11,23 @@ def integrate_single_shooting(ocp: dict[str, any], q_opt: np.ndarray, qdot_opt: 
     x_integrated = np.zeros((4, n_shooting + 1))
     x_integrated[:, 0] = np.hstack((q_opt[:, 0], qdot_opt[:, 0]))
     for i_node in range(n_shooting):
-        x_integrated[:, i_node + 1] = ocp["integration_func"](
-            x=x_integrated[:, i_node],
-            u=muscle_opt[:, i_node],
-        )['x_next'].full().flatten()
+        x_integrated[:, i_node + 1] = (
+            ocp["integration_func"](
+                x=x_integrated[:, i_node],
+                u=muscle_opt[:, i_node],
+            )["x_next"]
+            .full()
+            .flatten()
+        )
     return x_integrated
 
 
 def save_ocp(
-        w_opt: np.ndarray,
-        ocp: dict[str, any],
-        save_path_ocp: str,
-        tol: float,
-        solver: any,
+    w_opt: np.ndarray,
+    ocp: dict[str, any],
+    save_path_ocp: str,
+    tol: float,
+    solver: any,
 ):
 
     # Parse ocp
@@ -49,23 +53,23 @@ def save_ocp(
     offset = 0
     for i_node in range(n_shooting + 1):
 
-        q_opt += w_opt[offset: offset + 2].tolist()
-        q0 += np.array(w0[offset: offset + 2]).flatten().tolist()
-        lbq += np.array(lbw[offset: offset + 2]).flatten().tolist()
-        ubq += np.array(ubw[offset: offset + 2]).flatten().tolist()
+        q_opt += w_opt[offset : offset + 2].tolist()
+        q0 += np.array(w0[offset : offset + 2]).flatten().tolist()
+        lbq += np.array(lbw[offset : offset + 2]).flatten().tolist()
+        ubq += np.array(ubw[offset : offset + 2]).flatten().tolist()
         offset += 2
 
-        qdot_opt += w_opt[offset: offset + 2].tolist()
-        qdot0 += np.array(w0[offset: offset + 2]).flatten().tolist()
-        lbqdot += np.array(lbw[offset: offset + 2]).flatten().tolist()
-        ubqdot += np.array(ubw[offset: offset + 2]).flatten().tolist()
+        qdot_opt += w_opt[offset : offset + 2].tolist()
+        qdot0 += np.array(w0[offset : offset + 2]).flatten().tolist()
+        lbqdot += np.array(lbw[offset : offset + 2]).flatten().tolist()
+        ubqdot += np.array(ubw[offset : offset + 2]).flatten().tolist()
         offset += 2
 
         if i_node < n_shooting:
-            muscle_opt += w_opt[offset: offset + 6].tolist()
-            muscle0 += np.array(w0[offset: offset + 6]).flatten().tolist()
-            lbmuscle += np.array(lbw[offset: offset + 6]).flatten().tolist()
-            ubmuscle += np.array(ubw[offset: offset + 6]).flatten().tolist()
+            muscle_opt += w_opt[offset : offset + 6].tolist()
+            muscle0 += np.array(w0[offset : offset + 6]).flatten().tolist()
+            lbmuscle += np.array(lbw[offset : offset + 6]).flatten().tolist()
+            ubmuscle += np.array(ubw[offset : offset + 6]).flatten().tolist()
             offset += 6
 
     q_opt = np.array(q_opt).reshape(2, n_shooting + 1, order="F")
