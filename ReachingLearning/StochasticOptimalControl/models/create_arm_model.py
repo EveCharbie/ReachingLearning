@@ -403,8 +403,9 @@ def main():
     model.to_biomod(biomod_filepath)
 
     if visualization_flag:
+        # NOTE: Please note that the meshes do not seem to be aligned with the segments in the visualization,
+        # but it is a visual artifact, the inertia properties lie on the axis.
         import pyorerun
-
         animation = pyorerun.LiveModelAnimation(biomod_filepath, with_q_charts=True)
         animation.rerun()
 
