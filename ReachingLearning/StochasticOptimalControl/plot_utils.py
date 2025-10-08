@@ -1,5 +1,3 @@
-
-
 def set_columns_suptitles(fig, axs):
 
     column_titles = ["Shoulder muscles", "Elbow muscles", "Biarticular muscles"]

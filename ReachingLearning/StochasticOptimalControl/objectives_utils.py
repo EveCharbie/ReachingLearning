@@ -34,9 +34,8 @@ def minimize_stochastic_efforts(model, x_single, u_single, noise_single) -> cas.
         q_this_time = x_single[i_random * model.nb_q : (i_random + 1) * model.nb_q]
         qdot_this_time = x_single[model.q_offset + i_random * model.nb_q : model.q_offset + (i_random + 1) * model.nb_q]
 
-        tau_computed[:, i_random] = model.collect_tau(q_this_time, qdot_this_time, muscle_activations, k_fb, ref_fb, sensory_noise)
+        tau_computed[:, i_random] = model.collect_tau(
+            q_this_time, qdot_this_time, muscle_activations, k_fb, ref_fb, sensory_noise
+        )
 
     return cas.sum1(cas.sum2(tau_computed**2))
-
-
-

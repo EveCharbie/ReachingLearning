@@ -20,6 +20,7 @@ def start_on_target(model, x_single: cas.MX) -> tuple[list[cas.MX], list[float],
     ubg = [0, 0]
     return g, lbg, ubg
 
+
 def mean_q_start_on_target(model, x_single: cas.MX) -> tuple[list[cas.MX], list[float], list[float]]:
     """
     Constraint to impose that the mean trajectory reaches the target at the end of the movement
@@ -30,6 +31,7 @@ def mean_q_start_on_target(model, x_single: cas.MX) -> tuple[list[cas.MX], list[
     lbg = [0, 0]
     ubg = [0, 0]
     return g, lbg, ubg
+
 
 def reach_target(model, x_single: cas.MX, example_type: ExampleType) -> tuple[list[cas.MX], list[float], list[float]]:
     """
@@ -50,7 +52,10 @@ def reach_target(model, x_single: cas.MX, example_type: ExampleType) -> tuple[li
 
     return g, lbg, ubg
 
-def mean_q_reach_target(model, x_single: cas.MX, example_type: ExampleType) -> tuple[list[cas.MX], list[float], list[float]]:
+
+def mean_q_reach_target(
+    model, x_single: cas.MX, example_type: ExampleType
+) -> tuple[list[cas.MX], list[float], list[float]]:
     """
     Constraint to impose that the mean trajectory reaches the target at the end of the movement
     """
@@ -69,15 +74,20 @@ def mean_q_reach_target(model, x_single: cas.MX, example_type: ExampleType) -> t
 
     return g, lbg, ubg
 
+
 def ref_equals_mean_ref(model, x_single, u_single) -> list[cas.MX]:
     """
     Constraint to impose that the feedback reference is equal to the mean feedback function value
     """
     nb_random = model.n_random
-    ref_fb = u_single[model.nb_muscles + model.nb_q * model.n_references : model.nb_muscles + model.nb_q * model.n_references + model.n_references]
+    ref_fb = u_single[
+        model.nb_muscles
+        + model.nb_q * model.n_references : model.nb_muscles
+        + model.nb_q * model.n_references
+        + model.n_references
+    ]
     ee_pos, ee_vel = get_end_effector_for_all_random(model, x_single)
     ee_pos_mean = cas.sum2(ee_pos) / nb_random
     ee_vel_mean = cas.sum2(ee_vel) / nb_random
     g = [ref_fb - cas.vertcat(ee_pos_mean, ee_vel_mean)]
     return g
-

@@ -90,7 +90,7 @@ def prepare_ocp(
     n_shooting: int,
     force_field_magnitude: float = 0,
     example_type=ExampleType.CIRCLE,
-    n_threads: int = 12
+    n_threads: int = 12,
 ) -> dict[str, any]:
 
     # Model

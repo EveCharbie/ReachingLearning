@@ -25,9 +25,7 @@ class StochasticBasicArmModel(ArmModel):
         self.n_references = 4  # 2 hand position + 2 hand velocity
         self.n_noises = self.n_references + self.nb_muscles
 
-        motor_noise_magnitude = cas.DM(
-            np.array([motor_noise_std**2 / dt] * self.nb_muscles)
-        )
+        motor_noise_magnitude = cas.DM(np.array([motor_noise_std**2 / dt] * self.nb_muscles))
         hand_sensory_noise_magnitude = cas.DM(
             np.array(
                 [
@@ -58,7 +56,7 @@ class StochasticBasicArmModel(ArmModel):
         muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations)
         tau_force_field = self.force_field(q, self.force_field_magnitude)
         tau_fb = k_fb @ (self.sensory_reference(q, qdot, sensory_noise) - ref_fb)
-        tau_friction = - self.friction_coefficients @ qdot
+        tau_friction = -self.friction_coefficients @ qdot
         torques_computed = muscles_tau + tau_force_field + tau_fb + tau_friction
         return torques_computed
 
@@ -81,16 +79,17 @@ class StochasticBasicArmModel(ArmModel):
         """
 
         # Collect variables
-        muscle = u_single[:self.nb_muscles]
+        muscle = u_single[: self.nb_muscles]
         muscle_offset = self.nb_muscles
-        k_fb = self.reshape_vector_to_matrix(u_single[muscle_offset : muscle_offset + self.n_references * self.nb_q], self.matrix_shape_k_fb)
+        k_fb = self.reshape_vector_to_matrix(
+            u_single[muscle_offset : muscle_offset + self.n_references * self.nb_q], self.matrix_shape_k_fb
+        )
         k_fb_offset = muscle_offset + self.n_references * self.nb_q
         ref_fb = u_single[k_fb_offset : k_fb_offset + self.n_references]
         qddot = cas.MX.zeros(self.nb_q * self.n_random)
         for i_random in range(self.n_random):
-            q_this_time = x_single[i_random * self.nb_q: (i_random + 1) * self.nb_q]
-            qdot_this_time = x_single[
-                             self.q_offset + i_random * self.nb_q: self.q_offset + (i_random + 1) * self.nb_q]
+            q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
+            qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
             motor_noise_this_time = noise_single[: self.nb_muscles]
             sensory_noise_this_time = noise_single[self.nb_muscles : self.nb_muscles + self.n_references]
 
@@ -99,11 +98,14 @@ class StochasticBasicArmModel(ArmModel):
             noised_muscle_activations = cas.fabs(noised_muscle_activations)  # In [0, inf[ instead of [1e-6, 1]
 
             # Collect tau components
-            torques_computed = self.collect_tau(q_this_time, qdot_this_time, noised_muscle_activations, k_fb, ref_fb, sensory_noise_this_time)
+            torques_computed = self.collect_tau(
+                q_this_time, qdot_this_time, noised_muscle_activations, k_fb, ref_fb, sensory_noise_this_time
+            )
 
             # Dynamics
-            qddot[i_random * self.nb_q: (i_random + 1) * self.nb_q] = self.forward_dynamics(q_this_time, qdot_this_time, torques_computed)
+            qddot[i_random * self.nb_q : (i_random + 1) * self.nb_q] = self.forward_dynamics(
+                q_this_time, qdot_this_time, torques_computed
+            )
 
-        dxdt = cas.vertcat(x_single[self.q_offset:], qddot)
+        dxdt = cas.vertcat(x_single[self.q_offset :], qddot)
         return dxdt
-

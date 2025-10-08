@@ -40,6 +40,7 @@ def get_dm_value(function, values):
     output = func(*values)
     return output
 
+
 def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
     h = dt / n_steps
     x_all = cas.DM.zeros((n_steps + 1, x_prev.shape[0]))

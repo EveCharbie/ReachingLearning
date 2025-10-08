@@ -85,16 +85,18 @@ class ArmModel:
         return matrix
 
     def get_mean_q(self, x):
-        q = x[:self.nb_q]
+        q = x[: self.nb_q]
         for i_random in range(1, self.n_random):
-            q = cas.horzcat(q, x[i_random * self.nb_q:(i_random + 1) * self.nb_q])
+            q = cas.horzcat(q, x[i_random * self.nb_q : (i_random + 1) * self.nb_q])
         q_mean = cas.sum2(q) / self.n_random
         return q_mean
 
     def get_mean_qdot(self, x):
         qdot = x[self.q_offset : self.q_offset + self.nb_q]
         for i_random in range(1, self.n_random):
-            qdot = cas.horzcat(qdot, x[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q])
+            qdot = cas.horzcat(
+                qdot, x[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
+            )
         qdot_mean = cas.sum2(qdot) / self.n_random
         return qdot_mean
 

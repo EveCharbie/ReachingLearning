@@ -47,14 +47,18 @@ def run_socp_basic(
     )
 
     if RUN_SOCP_BASIC:
-        print("\nSolving SOCP BASIC............................................................................................\n")
+        print(
+            "\nSolving SOCP BASIC............................................................................................\n"
+        )
         w_opt, solver = solve(socp_basic)
         variable_data = save_socp_basic(w_opt, socp_basic, save_path_socp_basic, tol, solver)
     else:
         ocp_print_tol = get_print_tol(tol)
         save_path_socp_basic = save_path_socp_basic.replace(".pkl", f"_CVG_{ocp_print_tol}.pkl")
         if not os.path.exists(save_path_socp_basic):
-            raise FileNotFoundError(f"The file {save_path_socp_basic} does not exist, please run the optimization first.")
+            raise FileNotFoundError(
+                f"The file {save_path_socp_basic} does not exist, please run the optimization first."
+            )
 
         with open(save_path_socp_basic, "rb") as file:
             variable_data = pickle.load(file)
@@ -76,4 +80,3 @@ def run_socp_basic(
     #         variable_data["q_opt"],
     #         variable_data["muscle_opt"],
     #     )
-

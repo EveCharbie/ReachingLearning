@@ -5,7 +5,6 @@ import git
 from datetime import date
 
 
-
 def get_git_version():
 
     # Save the version of bioptim and the date of the optimization for future reference

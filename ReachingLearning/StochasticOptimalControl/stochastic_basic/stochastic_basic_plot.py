@@ -45,21 +45,41 @@ def plot_states(variable_data, socp_basic, save_path_socp_basic):
     for i_random in range(socp_basic["model"].n_random):
         axs[0, 0].plot(time_vector, variable_data["q_opt"][0, i_random, :], ".", markersize=1, color=SOCP_BASIC_color)
         axs[0, 1].plot(time_vector, variable_data["q_opt"][1, i_random, :], ".", markersize=1, color=SOCP_BASIC_color)
-        axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, i_random, :], ".", markersize=1, color=SOCP_BASIC_color)
-        axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, i_random, :], ".", markersize=1, color=SOCP_BASIC_color)
+        axs[1, 0].plot(
+            time_vector, variable_data["qdot_opt"][0, i_random, :], ".", markersize=1, color=SOCP_BASIC_color
+        )
+        axs[1, 1].plot(
+            time_vector, variable_data["qdot_opt"][1, i_random, :], ".", markersize=1, color=SOCP_BASIC_color
+        )
 
     # Reintegration
     for i_random in range(socp_basic["model"].n_random):
-        axs[0, 0].plot(time_vector, variable_data["q_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color)
-        axs[0, 1].plot(time_vector, variable_data["q_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color)
-        axs[1, 0].plot(time_vector, variable_data["qdot_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color)
-        axs[1, 1].plot(time_vector, variable_data["qdot_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color)
+        axs[0, 0].plot(
+            time_vector, variable_data["q_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+        )
+        axs[0, 1].plot(
+            time_vector, variable_data["q_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+        )
+        axs[1, 0].plot(
+            time_vector, variable_data["qdot_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+        )
+        axs[1, 1].plot(
+            time_vector, variable_data["qdot_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+        )
 
     # Bounds
-    axs[0, 0].fill_between(time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, 0, :], color="lightgrey")
-    axs[0, 0].fill_between(time_vector, variable_data["ubq"][0, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey")
-    axs[0, 1].fill_between(time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, 0, :], color="lightgrey")
-    axs[0, 1].fill_between(time_vector, variable_data["ubq"][1, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey")
+    axs[0, 0].fill_between(
+        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, 0, :], color="lightgrey"
+    )
+    axs[0, 0].fill_between(
+        time_vector, variable_data["ubq"][0, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
+    )
+    axs[0, 1].fill_between(
+        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, 0, :], color="lightgrey"
+    )
+    axs[0, 1].fill_between(
+        time_vector, variable_data["ubq"][1, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
+    )
     axs[1, 0].fill_between(
         time_vector,
         np.ones((n_shooting + 1,)) * -100,
@@ -168,10 +188,26 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, motor_noise
     q_offset = socp_basic["model"].q_offset
     n_q = socp_basic["model"].nb_q
     n_noises = (socp_basic["model"].n_references + socp_basic["model"].nb_muscles) * n_random
-    noise_magnitude = np.hstack((
-        np.array(np.array(socp_basic["model"].motor_noise_magnitude).reshape(-1, ).tolist() * n_random),
-        np.array(np.array(socp_basic["model"].hand_sensory_noise_magnitude).reshape(-1, ).tolist() * n_random),
-    ))
+    noise_magnitude = np.hstack(
+        (
+            np.array(
+                np.array(socp_basic["model"].motor_noise_magnitude)
+                .reshape(
+                    -1,
+                )
+                .tolist()
+                * n_random
+            ),
+            np.array(
+                np.array(socp_basic["model"].hand_sensory_noise_magnitude)
+                .reshape(
+                    -1,
+                )
+                .tolist()
+                * n_random
+            ),
+        )
+    )
 
     # Reintegrate the solution with noise
     x_simulated = np.zeros((n_simulations * n_random, 2 * n_q, n_shooting + 1))
@@ -180,35 +216,50 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, motor_noise
     for i_simulation in range(n_simulations):
         print(f"Running socp_basic noised simulation {i_simulation}")
         np.random.seed(i_simulation)
-        x_simulated[i_simulation * n_random: (i_simulation + 1) * n_random, :, 0] = variable_data["x_opt"][:, 0].reshape(n_random, n_q * 2, order="F").copy()
+        x_simulated[i_simulation * n_random : (i_simulation + 1) * n_random, :, 0] = (
+            variable_data["x_opt"][:, 0].reshape(n_random, n_q * 2, order="F").copy()
+        )
         for i_node in range(n_shooting):
             x_prev = np.zeros((n_q * 2 * n_random))
             for i_random in range(n_random):
-                x_prev[i_random * n_q: (i_random + 1) * n_q] = x_simulated[i_simulation * n_random + i_random * n_q: i_simulation * n_random *(i_random + 1) * n_q, :, i_node]
-                x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q] = x_simulated[q_offset + i_simulation * n_random + i_random * n_q: q_offset + i_simulation * n_random (i_random + 1) * n_q, :, i_node]
+                x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[
+                    i_simulation * n_random + i_random * n_q : i_simulation * n_random * (i_random + 1) * n_q, :, i_node
+                ]
+                x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
+                    q_offset
+                    + i_simulation * n_random
+                    + i_random * n_q : q_offset
+                    + i_simulation * n_random(i_random + 1) * n_q,
+                    :,
+                    i_node,
+                ]
             u_this_time = variable_data["u_opt"][:, i_node]
             noise_this_time = np.random.normal(0, noise_magnitude, n_noises)
             x_next = socp_basic["integration_func"](x_prev, u_this_time, noise_this_time)
-            x_simulated[i_simulation * n_random: (i_simulation + 1) * n_random, :, i_node + 1] = np.reshape(x_next[:, 0], (-1,))
+            x_simulated[i_simulation * n_random : (i_simulation + 1) * n_random, :, i_node + 1] = np.reshape(
+                x_next[:, 0], (-1,)
+            )
 
             for i_random in range(n_random):
-                hand_pos_simulated[i_simulation * n_random + i_random, :, i_node] = hand_position(socp_basic, x_prev[i_random * 2 * n_q: i_random * 2 * n_q + n_q, 0])
+                hand_pos_simulated[i_simulation * n_random + i_random, :, i_node] = hand_position(
+                    socp_basic, x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0]
+                )
                 hand_vel_simulated[i_simulation * n_random + i_random, :, i_node] = hand_velocity(
-                    socp_basic, 
-                    x_prev[i_random * 2 * n_q: i_random * 2 * n_q + n_q, 0],
-                    x_prev[i_random * 2 * n_q + n_q: i_random * 2 * n_q + 2 * n_q, 0],
+                    socp_basic,
+                    x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0],
+                    x_prev[i_random * 2 * n_q + n_q : i_random * 2 * n_q + 2 * n_q, 0],
                 )
 
-        x_prev = x_simulated[(i_simulation + 1) * n_random: (i_simulation + 2) * n_random, :, i_node + 1]
+        x_prev = x_simulated[(i_simulation + 1) * n_random : (i_simulation + 2) * n_random, :, i_node + 1]
         for i_random in range(n_random):
             hand_pos_simulated[(i_simulation + 1) * n_random + i_random, :, i_node] = hand_position(
-                socp_basic, 
-                x_prev[i_random * 2 * n_q: i_random * 2 * n_q + n_q, 0],
+                socp_basic,
+                x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0],
             )
             hand_vel_simulated[(i_simulation + 1) * n_random + i_random, :, i_node] = hand_velocity(
                 socp_basic,
-                x_prev[i_random * 2 * n_q: i_random * 2 * n_q + n_q, 0],
-                x_prev[i_random * 2 * n_q + n_q: i_random * 2 * n_q + 2 * n_q, 0],
+                x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0],
+                x_prev[i_random * 2 * n_q + n_q : i_random * 2 * n_q + 2 * n_q, 0],
             )
 
     hand_pos_ref = np.zeros((2, n_shooting + 1))
@@ -270,9 +321,7 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, motor_noise
     axs[2, 0].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["q_opt"][1, :], color="k")
     axs[2, 0].set_xlabel("Time [s]")
     axs[2, 0].set_ylabel("Elbow angle [rad]")
-    axs[0, 1].plot(
-        np.linspace(0, final_time, n_shooting + 1), np.linalg.norm(hand_vel_ref, axis=0), color="k"
-    )
+    axs[0, 1].plot(np.linspace(0, final_time, n_shooting + 1), np.linalg.norm(hand_vel_ref, axis=0), color="k")
     axs[0, 1].set_xlabel("Time [s]")
     axs[0, 1].set_ylabel("Hand velocity [m/s]")
     axs[0, 1].set_title("Hand velocity simulated")

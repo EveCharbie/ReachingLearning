@@ -62,7 +62,7 @@ def save_socp_basic(
             lbq[:, i_random, i_node] = np.array(lbw[offset : offset + n_q]).flatten()
             ubq[:, i_random, i_node] = np.array(ubw[offset : offset + n_q]).flatten()
             offset += n_q
-        x_opt[:n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
+        x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
 
         for i_random in range(n_random):
             qdot_opt[:, i_random, i_node] = np.array(w_opt[offset : offset + n_q]).flatten()
@@ -70,7 +70,7 @@ def save_socp_basic(
             lbqdot[:, i_random, i_node] = np.array(lbw[offset : offset + n_q]).flatten()
             ubqdot[:, i_random, i_node] = np.array(ubw[offset : offset + n_q]).flatten()
             offset += n_q
-        x_opt[n_q * n_random:, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
+        x_opt[n_q * n_random :, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
 
         if i_node < n_shooting:
             muscle_opt[:, i_node] = np.array(w_opt[offset : offset + n_muscles]).flatten()
@@ -85,14 +85,14 @@ def save_socp_basic(
             lbk_fb[:, i_node] = np.array(lbw[offset : offset + n_q * n_references]).flatten()
             ubk_fb[:, i_node] = np.array(ubw[offset : offset + n_q * n_references]).flatten()
             offset += n_q * n_references
-            u_opt[n_muscles: n_muscles + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
+            u_opt[n_muscles : n_muscles + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
 
             ref_fb_opt[:, i_node] = np.array(w_opt[offset : offset + n_references]).flatten()
             ref_fb0[:, i_node] = np.array(w0[offset : offset + n_references]).flatten()
             lbref_fb[:, i_node] = np.array(lbw[offset : offset + n_references]).flatten()
             ubref_fb[:, i_node] = np.array(ubw[offset : offset + n_references]).flatten()
             offset += n_references
-            u_opt[n_muscles + n_q * n_references:, i_node] = ref_fb_opt[:, i_node].flatten()
+            u_opt[n_muscles + n_q * n_references :, i_node] = ref_fb_opt[:, i_node].flatten()
 
     time_vector = np.linspace(0, final_time, n_shooting + 1)
 
@@ -103,7 +103,9 @@ def save_socp_basic(
     for i_node in range(n_shooting + 1):
         for i_random in range(n_random):
             q_integrated[:, i_random, i_node] = x_integrated[i_random * n_q : (i_random + 1) * n_q, i_node]
-            qdot_integrated[:, i_random, i_node] = x_integrated[n_q * n_random + i_random * n_q : n_q * n_random + (i_random + 1) * n_q, i_node]
+            qdot_integrated[:, i_random, i_node] = x_integrated[
+                n_q * n_random + i_random * n_q : n_q * n_random + (i_random + 1) * n_q, i_node
+            ]
 
     # Other info oin the optimization process
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

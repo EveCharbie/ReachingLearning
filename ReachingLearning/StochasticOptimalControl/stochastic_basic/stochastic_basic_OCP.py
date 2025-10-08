@@ -83,6 +83,7 @@ def declare_variables(
             w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
     return x, u, w, lbw, ubw, w0
 
+
 def declare_noises(n_shooting, n_random, motor_noise_magnitude, sensory_noise_magnitude):
     """
     Motor noise: 6 muscles
@@ -95,28 +96,29 @@ def declare_noises(n_shooting, n_random, motor_noise_magnitude, sensory_noise_ma
     sensory_noise_numerical = np.zeros((n_references, n_random, n_shooting + 1))
     noises_numerical = []
     for i_shooting in range(n_shooting):
-        this_motor_noise_vector = np.zeros((n_muscles * n_random, ))
-        this_sensory_noise_vector = np.zeros((n_references * n_random, ))
+        this_motor_noise_vector = np.zeros((n_muscles * n_random,))
+        this_sensory_noise_vector = np.zeros((n_references * n_random,))
         for i_random in range(n_random):
             motor_noise_numerical[:, i_random, i_shooting] = np.random.normal(
-                loc=np.zeros((n_muscles, )),
+                loc=np.zeros((n_muscles,)),
                 scale=np.reshape(np.array(motor_noise_magnitude), (n_muscles,)),
                 size=n_muscles,
             )
             sensory_noise_numerical[:, i_random, i_shooting] = np.random.normal(
-                loc=np.zeros((n_references, )),
-                scale=np.reshape(
-                    np.array(sensory_noise_magnitude), (n_references, )
-                ),
+                loc=np.zeros((n_references,)),
+                scale=np.reshape(np.array(sensory_noise_magnitude), (n_references,)),
                 size=n_references,
             )
-            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = motor_noise_numerical[:, i_random, i_shooting]
-            this_sensory_noise_vector[n_references * i_random : n_references * (i_random + 1)] = sensory_noise_numerical[:, i_random, i_shooting]
-        noises_numerical += [cas.vertcat(
-            this_motor_noise_vector, this_sensory_noise_vector
-        )]
+            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = motor_noise_numerical[
+                :, i_random, i_shooting
+            ]
+            this_sensory_noise_vector[n_references * i_random : n_references * (i_random + 1)] = (
+                sensory_noise_numerical[:, i_random, i_shooting]
+            )
+        noises_numerical += [cas.vertcat(this_motor_noise_vector, this_sensory_noise_vector)]
     noises_single = cas.MX.sym("noises_single", (n_muscles + n_references) * n_random)
     return noises_numerical, noises_single
+
 
 def declare_dynamics_equation(model, x_single, u_single, noises_single, dt):
     """
@@ -129,7 +131,9 @@ def declare_dynamics_equation(model, x_single, u_single, noises_single, dt):
 
     # Dynamics
     xdot = model.dynamics(x_single, u_single, noises_single)
-    dynamics_func = cas.Function(f"dynamics", [x_single, u_single, noises_single], [xdot], ["x", "u", "noise"], ["xdot"])
+    dynamics_func = cas.Function(
+        f"dynamics", [x_single, u_single, noises_single], [xdot], ["x", "u", "noise"], ["xdot"]
+    )
     dynamics_func = dynamics_func.expand()
 
     # Integrator
@@ -175,7 +179,9 @@ def prepare_socp_basic(
 
     # Variables
     x, u, w, lbw, ubw, w0 = declare_variables(n_shooting, n_random)
-    noises_numerical, noises_single = declare_noises(n_shooting, n_random, model.motor_noise_magnitude, model.hand_sensory_noise_magnitude)
+    noises_numerical, noises_single = declare_noises(
+        n_shooting, n_random, model.motor_noise_magnitude, model.hand_sensory_noise_magnitude
+    )
 
     # Start with an empty NLP
     j = 0
@@ -184,7 +190,9 @@ def prepare_socp_basic(
     ubg = []
 
     # Dynamics
-    dynamics_func, integration_func = declare_dynamics_equation(model, x_single=x[0], u_single=u[0], noises_single=noises_single, dt=dt)
+    dynamics_func, integration_func = declare_dynamics_equation(
+        model, x_single=x[0], u_single=u[0], noises_single=noises_single, dt=dt
+    )
 
     multi_threaded_integrator = integration_func.map(n_shooting, "thread", n_threads)
 

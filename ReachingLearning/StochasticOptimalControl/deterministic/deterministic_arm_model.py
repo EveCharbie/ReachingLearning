@@ -34,7 +34,7 @@ class DeterministicArmModel(ArmModel):
         # Collect tau components
         muscles_tau = self.get_muscle_torque(q, qdot, muscle)
         tau_force_field = self.force_field(q, self.force_field_magnitude)
-        tau_friction = - self.friction_coefficients @ qdot
+        tau_friction = -self.friction_coefficients @ qdot
         torques_computed = muscles_tau + tau_force_field + tau_friction
 
         # Dynamics
@@ -42,4 +42,3 @@ class DeterministicArmModel(ArmModel):
         dxdt = cas.vertcat(qdot, qddot)
 
         return dxdt
-

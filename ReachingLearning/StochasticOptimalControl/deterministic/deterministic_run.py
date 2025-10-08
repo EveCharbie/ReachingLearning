@@ -22,7 +22,9 @@ def run_ocp(
     PLOT_FLAG: bool,
     ANIMATE_FLAG: bool,
 ):
-    save_path_ocp = f"../results/StochasticOptimalControl/ocp_forcefield{force_field_magnitude}_{example_type.value}.pkl"
+    save_path_ocp = (
+        f"../results/StochasticOptimalControl/ocp_forcefield{force_field_magnitude}_{example_type.value}.pkl"
+    )
 
     ocp = prepare_ocp(
         final_time=final_time,
@@ -33,7 +35,9 @@ def run_ocp(
     )
 
     if RUN_OCP:
-        print("\nSolving OCP............................................................................................\n")
+        print(
+            "\nSolving OCP............................................................................................\n"
+        )
         w_opt, solver = solve(ocp)
         variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
     else:
@@ -62,4 +66,3 @@ def run_ocp(
             variable_data["q_opt"],
             variable_data["muscle_opt"],
         )
-
