@@ -40,8 +40,13 @@ def declare_variables(
         qdot_i = cas.MX.sym(f"qdot_{i_node}", 2)
         x += [cas.vertcat(q_i, qdot_i)]
         w += [cas.vertcat(q_i, qdot_i)]
-        lbw += [0, 0, -10 * np.pi, -10 * np.pi]
-        ubw += [np.pi / 2, 7 / 8 * np.pi, 10 * np.pi, 10 * np.pi]
+        if i_node == 0 or i_node == n_shooting:
+            # No velocity at beginning and end of the movement
+            lbw += [0, 0, 0, 0]
+            ubw += [np.pi / 2, 7 / 8 * np.pi, 0, 0]
+        else:
+            lbw += [0, 0, -10 * np.pi, -10 * np.pi]
+            ubw += [np.pi / 2, 7 / 8 * np.pi, 10 * np.pi, 10 * np.pi]
         w0 += [joint_angles_init[0, i_node], joint_angles_init[1, i_node], 0, 0]
         if i_node < n_shooting:
             muscle_i = cas.MX.sym(f"muscle_{i_node}", 6)
@@ -108,7 +113,7 @@ def prepare_ocp(
     multi_threaded_integrator = integration_func.map(n_shooting, "thread", n_threads)
 
     # Initial constraint
-    g_target, lbg_target, ubg_target = start_on_target(model, x[-1])
+    g_target, lbg_target, ubg_target = start_on_target(model, x[0])
     g += g_target
     lbg += lbg_target
     ubg += ubg_target

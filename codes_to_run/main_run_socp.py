@@ -2,8 +2,6 @@ import pickle
 from datetime import datetime
 import os
 
-import casadi as cas
-import numpy as np
 
 from ReachingLearning import (
     ExampleType,
@@ -12,19 +10,19 @@ from ReachingLearning import (
     prepare_ocp,
     save_ocp,
     plot_ocp,
-    # animate_ocp,
+    animate_ocp,
     # prepare_basic_socp,
     # save_basic_socp,
 )
 
 
-RUN_OCP = True
+RUN_OCP = False
 RUN_SOCP = True
 print(RUN_OCP, RUN_SOCP)
 print(datetime.now().strftime("%d-%m %H:%M:%S"))
 
 PLOT_FLAG = True
-ANIMATE_FLAG = False
+ANIMATE_FLAG = True
 example_type = ExampleType.CIRCLE
 force_field_magnitude = 0
 
@@ -82,15 +80,13 @@ if PLOT_FLAG:
 
 
 if ANIMATE_FLAG:
-    q_sol = variable_data["q_sol"]
-    excitations_sol = variable_data["excitations_sol"]
     animate_ocp(
-        example_type,
         final_time,
         n_shooting,
-        q_sol,
-        excitations_sol,
+        variable_data["q_opt"],
+        variable_data["muscle_opt"],
     )
+
 #
 #
 # # --- Run the SOCP --- #

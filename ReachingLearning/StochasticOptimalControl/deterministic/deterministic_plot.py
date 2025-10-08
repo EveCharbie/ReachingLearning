@@ -18,9 +18,10 @@ def hand_velocity(ocp, q, qdot):
     return np.reshape(hand_velo[:2], (2,))
 
 
-def plot_variables(variable_data, ocp, save_path_ocp):
+def plot_states(variable_data, ocp, save_path_ocp):
 
     n_shooting = ocp["n_shooting"]
+    time_vector = variable_data["time_vector"]
 
     # Set up the plots
     fig, axs = plt.subplots(2, 2, figsize=(6, 6))
@@ -34,61 +35,143 @@ def plot_variables(variable_data, ocp, save_path_ocp):
     axs[0, 1].set_ylim([np.min(variable_data["lbq"]) - 0.1, np.max(variable_data["ubq"]) + 0.1])
     axs[1, 0].set_ylim([np.min(variable_data["lbqdot"]) - 1, np.max(variable_data["ubqdot"]) + 1])
     axs[1, 1].set_ylim([np.min(variable_data["lbqdot"]) - 1, np.max(variable_data["ubqdot"]) + 1])
-    axs[0, 0].set_xlim([0, variable_data["time_vector"][-1]])
-    axs[0, 1].set_xlim([0, variable_data["time_vector"][-1]])
-    axs[1, 0].set_xlim([0, variable_data["time_vector"][-1]])
-    axs[1, 1].set_xlim([0, variable_data["time_vector"][-1]])
+    axs[0, 0].set_xlim([0, time_vector[-1]])
+    axs[0, 1].set_xlim([0, time_vector[-1]])
+    axs[1, 0].set_xlim([0, time_vector[-1]])
+    axs[1, 1].set_xlim([0, time_vector[-1]])
 
     # Optimization variables
-    axs[0, 0].plot(variable_data["time_vector"], variable_data["q_opt"][0, :], ".", color=OCP_color)
-    axs[0, 1].plot(variable_data["time_vector"], variable_data["q_opt"][1, :], ".", color=OCP_color)
-    axs[1, 0].plot(variable_data["time_vector"], variable_data["qdot_opt"][0, :], ".", color=OCP_color)
-    axs[1, 1].plot(variable_data["time_vector"], variable_data["qdot_opt"][1, :], ".", color=OCP_color)
+    axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], ".", markersize=1, color=OCP_color)
+    axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], ".", markersize=1, color=OCP_color)
+    axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], ".", markersize=1, color=OCP_color)
+    axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], ".", markersize=1, color=OCP_color)
 
     # Reintegration
-    axs[0, 0].plot(variable_data["time_vector"], variable_data["q_integrated"][0, :], "-", linewidth=2, color=OCP_color)
-    axs[0, 1].plot(variable_data["time_vector"], variable_data["q_integrated"][1, :], "-", linewidth=2, color=OCP_color)
+    axs[0, 0].plot(time_vector, variable_data["q_integrated"][0, :], "-", linewidth=2, color=OCP_color)
+    axs[0, 1].plot(time_vector, variable_data["q_integrated"][1, :], "-", linewidth=2, color=OCP_color)
     axs[1, 0].plot(
-        variable_data["time_vector"], variable_data["qdot_integrated"][0, :], "-", linewidth=2, color=OCP_color
+        time_vector, variable_data["qdot_integrated"][0, :], "-", linewidth=2, color=OCP_color
     )
     axs[1, 1].plot(
-        variable_data["time_vector"], variable_data["qdot_integrated"][1, :], "-", linewidth=2, color=OCP_color
+        time_vector, variable_data["qdot_integrated"][1, :], "-", linewidth=2, color=OCP_color
     )
 
     # Bounds
     axs[0, 0].fill_between(
-        variable_data["time_vector"], np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, :], color="lightgrey"
+        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, :], color="lightgrey"
     )
     axs[0, 0].fill_between(
-        variable_data["time_vector"], variable_data["ubq"][0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
+        time_vector, variable_data["ubq"][0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
     )
     axs[0, 1].fill_between(
-        variable_data["time_vector"], np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, :], color="lightgrey"
+        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, :], color="lightgrey"
     )
     axs[0, 1].fill_between(
-        variable_data["time_vector"], variable_data["ubq"][1, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
+        time_vector, variable_data["ubq"][1, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
     )
     axs[1, 0].fill_between(
-        variable_data["time_vector"],
+        time_vector,
         np.ones((n_shooting + 1,)) * -100,
         variable_data["lbqdot"][0, :],
         color="lightgrey",
     )
     axs[1, 0].fill_between(
-        variable_data["time_vector"], variable_data["ubqdot"][0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
+        time_vector, variable_data["ubqdot"][0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
     )
     axs[1, 1].fill_between(
-        variable_data["time_vector"],
+        time_vector,
         np.ones((n_shooting + 1,)) * -100,
         variable_data["lbqdot"][1, :],
         color="lightgrey",
     )
     axs[1, 1].fill_between(
-        variable_data["time_vector"], variable_data["ubqdot"][1, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
+        time_vector, variable_data["ubqdot"][1, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
     )
 
     plt.tight_layout()
-    save_path_fig = save_path_ocp.replace(".pkl", "_plot_variables.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_ocp.replace(".pkl", "_plot_states.png").replace("/results/", "/figures/")
+    plt.savefig(save_path_fig)
+    plt.show()
+    # plt.close()
+
+def set_columns_suptitles(fig, axs):
+
+    column_titles = ["Shoulder muscles", "Elbow muscles", "Biarticular muscles"]
+
+    # Get the position of each column and add titles
+    pad = 0.02  # spacing from the top
+    for j, col_title in enumerate(column_titles):
+        # Calculate x position based on subplot positions
+        x_pos = (axs[0, j].get_position().x0 + axs[0, j].get_position().x1) / 2
+        y_pos = axs[0, j].get_position().y1 + pad
+        fig.text(x_pos, y_pos, col_title, ha='center', va='bottom',
+                 fontsize=14, weight='bold')
+
+    return fig, axs
+
+def plot_controls(variable_data, ocp, save_path_ocp):
+
+    n_shooting = ocp["n_shooting"]
+    time_vector = variable_data["time_vector"][:-1]
+
+    # Set up the plots
+    fig, axs = plt.subplots(2, 3, figsize=(6, 6))
+    fig, axs = set_columns_suptitles(fig, axs)
+    axs[1, 0].set_xlabel("Time [s]")
+    axs[1, 1].set_xlabel("Time [s]")
+    axs[1, 2].set_xlabel("Time [s]")
+    axs[0, 0].set_ylabel("Flexor Activation")
+    axs[1, 0].set_ylabel("Extensor Activation")
+    axs[0, 0].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[0, 1].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[0, 2].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[1, 0].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[1, 1].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[1, 2].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[0, 0].set_xlim([0, time_vector[-1]])
+    axs[0, 1].set_xlim([0, time_vector[-1]])
+    axs[0, 2].set_xlim([0, time_vector[-1]])
+    axs[1, 0].set_xlim([0, time_vector[-1]])
+    axs[1, 1].set_xlim([0, time_vector[-1]])
+    axs[1, 2].set_xlim([0, time_vector[-1]])
+
+    # Optimization variables
+    axs[0, 0].plot(time_vector, variable_data["muscle_opt"][2, :], ".", markersize=1, color=OCP_color)
+    axs[0, 0].set_title("Deltoid Anterior")
+    axs[0, 1].plot(time_vector, variable_data["muscle_opt"][0, :], ".", markersize=1, color=OCP_color)
+    axs[0, 1].set_title("Brachialis")
+    axs[0, 2].plot(time_vector, variable_data["muscle_opt"][4, :], ".", markersize=1, color=OCP_color)
+    axs[0, 2].set_title("Biceps")
+    axs[1, 0].plot(time_vector, variable_data["muscle_opt"][3, :], ".", markersize=1, color=OCP_color)
+    axs[1, 0].set_title("Deltoid Posterior")
+    axs[1, 1].plot(time_vector, variable_data["muscle_opt"][1, :], ".", markersize=1, color=OCP_color)
+    axs[1, 1].set_title("Triceps Lateral")
+    axs[1, 2].plot(time_vector, variable_data["muscle_opt"][5, :], ".", markersize=1, color=OCP_color)
+    axs[1, 2].set_title("Triceps Long")
+
+    # Bounds
+    if np.any(np.abs(variable_data["lbmuscle"] - 1e-6) > 1e-6):
+        raise RuntimeError("Muscle lower bound is not 1e-6, please update the plotting code")
+    if np.any(np.abs(variable_data["ubmuscle"] - 1) > 1e-6):
+        raise RuntimeError("Muscle upper bound is not 1, please update the plotting code")
+
+    for i_ax in range(2):
+        for j_ax in range(3):
+            axs[i_ax, j_ax].fill_between(
+                time_vector,
+                np.ones((n_shooting,)) * -0.1,
+                variable_data["lbmuscle"][i_ax * 2 + j_ax, :],
+                color="lightgrey",
+            )
+            axs[i_ax, j_ax].fill_between(
+                time_vector,
+                variable_data["ubmuscle"][i_ax * 2 + j_ax, :],
+                np.ones((n_shooting,)) * 1.1,
+                color="lightgrey",
+            )
+
+    plt.tight_layout()
+    save_path_fig = save_path_ocp.replace(".pkl", "_plot_controls.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
@@ -179,8 +262,8 @@ def plot_hand_trajectories(variable_data, ocp, n_simulations, motor_noise_std, s
         )
 
     axs[0, 0].plot(hand_pos_without_noise[0, :], hand_pos_without_noise[1, :], color="k")
-    axs[0, 0].plot(hand_initial_position[0], hand_initial_position[1], color="tab:green", marker="o", markersize=2)
-    axs[0, 0].plot(hand_final_position[0], hand_final_position[1], color="tab:red", marker="o", markersize=2)
+    axs[0, 0].plot(hand_initial_position[0], hand_initial_position[1], color="tab:green", marker="o", markersize=1)
+    axs[0, 0].plot(hand_final_position[0], hand_final_position[1], color="tab:red", marker="o", markersize=1)
     axs[0, 0].set_xlabel("X [m]")
     axs[0, 0].set_ylabel("Y [m]")
     axs[0, 0].set_title("Hand position simulated")
@@ -220,5 +303,6 @@ def plot_ocp(
 ):
 
     # TODO: see if force_field_magnitude is implemented correctly
-    plot_variables(variable_data, ocp, save_path_ocp)
+    plot_states(variable_data, ocp, save_path_ocp)
+    plot_controls(variable_data, ocp, save_path_ocp)
     plot_hand_trajectories(variable_data, ocp, n_simulations, motor_noise_std, save_path_ocp)
