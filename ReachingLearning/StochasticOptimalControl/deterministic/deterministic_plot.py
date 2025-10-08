@@ -49,26 +49,14 @@ def plot_states(variable_data, ocp, save_path_ocp):
     # Reintegration
     axs[0, 0].plot(time_vector, variable_data["q_integrated"][0, :], "-", linewidth=2, color=OCP_color)
     axs[0, 1].plot(time_vector, variable_data["q_integrated"][1, :], "-", linewidth=2, color=OCP_color)
-    axs[1, 0].plot(
-        time_vector, variable_data["qdot_integrated"][0, :], "-", linewidth=2, color=OCP_color
-    )
-    axs[1, 1].plot(
-        time_vector, variable_data["qdot_integrated"][1, :], "-", linewidth=2, color=OCP_color
-    )
+    axs[1, 0].plot(time_vector, variable_data["qdot_integrated"][0, :], "-", linewidth=2, color=OCP_color)
+    axs[1, 1].plot(time_vector, variable_data["qdot_integrated"][1, :], "-", linewidth=2, color=OCP_color)
 
     # Bounds
-    axs[0, 0].fill_between(
-        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, :], color="lightgrey"
-    )
-    axs[0, 0].fill_between(
-        time_vector, variable_data["ubq"][0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
-    )
-    axs[0, 1].fill_between(
-        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, :], color="lightgrey"
-    )
-    axs[0, 1].fill_between(
-        time_vector, variable_data["ubq"][1, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
-    )
+    axs[0, 0].fill_between(time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, :], color="lightgrey")
+    axs[0, 0].fill_between(time_vector, variable_data["ubq"][0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey")
+    axs[0, 1].fill_between(time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, :], color="lightgrey")
+    axs[0, 1].fill_between(time_vector, variable_data["ubq"][1, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey")
     axs[1, 0].fill_between(
         time_vector,
         np.ones((n_shooting + 1,)) * -100,
@@ -94,6 +82,7 @@ def plot_states(variable_data, ocp, save_path_ocp):
     plt.show()
     # plt.close()
 
+
 def set_columns_suptitles(fig, axs):
 
     column_titles = ["Shoulder muscles", "Elbow muscles", "Biarticular muscles"]
@@ -104,10 +93,10 @@ def set_columns_suptitles(fig, axs):
         # Calculate x position based on subplot positions
         x_pos = (axs[0, j].get_position().x0 + axs[0, j].get_position().x1) / 2
         y_pos = axs[0, j].get_position().y1 + pad
-        fig.text(x_pos, y_pos, col_title, ha='center', va='bottom',
-                 fontsize=14, weight='bold')
+        fig.text(x_pos, y_pos, col_title, ha="center", va="bottom", fontsize=14, weight="bold")
 
     return fig, axs
+
 
 def plot_controls(variable_data, ocp, save_path_ocp):
 

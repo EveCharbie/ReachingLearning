@@ -21,7 +21,7 @@ def animate_ocp(
         radius=0.005,
         color=np.array([0, 1, 0]),
         show_labels=False,
-        nb_frames=n_shooting+1,
+        nb_frames=n_shooting + 1,
     )
 
     # Initialize the animation
