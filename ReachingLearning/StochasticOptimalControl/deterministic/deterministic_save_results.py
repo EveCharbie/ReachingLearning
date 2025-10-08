@@ -2,24 +2,7 @@ import pickle
 import numpy as np
 from datetime import datetime
 
-from ..utils import get_print_tol
-
-
-def integrate_single_shooting(ocp: dict[str, any], q_opt: np.ndarray, qdot_opt: np.ndarray, muscle_opt: np.ndarray):
-    n_shooting = ocp["n_shooting"]
-
-    x_integrated = np.zeros((4, n_shooting + 1))
-    x_integrated[:, 0] = np.hstack((q_opt[:, 0], qdot_opt[:, 0]))
-    for i_node in range(n_shooting):
-        x_integrated[:, i_node + 1] = (
-            ocp["integration_func"](
-                x=x_integrated[:, i_node],
-                u=muscle_opt[:, i_node],
-            )["x_next"]
-            .full()
-            .flatten()
-        )
-    return x_integrated
+from ..save_utils import integrate_single_shooting, get_print_tol
 
 
 def save_ocp(
@@ -87,7 +70,7 @@ def save_ocp(
     time_vector = np.linspace(0, final_time, n_shooting + 1)
 
     # Reintegrate the solution
-    x_integrated = integrate_single_shooting(ocp, q_opt, qdot_opt, muscle_opt)
+    x_integrated = integrate_single_shooting(ocp, np.hstack((q_opt[:, 0], qdot_opt[:, 0])), muscle_opt)
     q_integrated = x_integrated[0:2, :]
     qdot_integrated = x_integrated[2:4, :]
 

@@ -7,9 +7,20 @@ from .StochasticOptimalControl.deterministic.deterministic_arm_model import Dete
 from .StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp
 from .StochasticOptimalControl.deterministic.deterministic_plot import plot_ocp
 from .StochasticOptimalControl.deterministic.deterministic_animate import animate_ocp
+from .StochasticOptimalControl.deterministic.deterministic_run import run_ocp
+
+# basic stochastic optimal control problem
+from .StochasticOptimalControl.stochastic_basic.stochastic_basic_OCP import prepare_socp_basic
+from .StochasticOptimalControl.stochastic_basic.stochastic_basic_arm_model import StochasticBasicArmModel
+from .StochasticOptimalControl.stochastic_basic.stochastic_basic_save_results import save_socp_basic
+from .StochasticOptimalControl.stochastic_basic.stochastic_basic_plot import plot_socp_basic
+from .StochasticOptimalControl.stochastic_basic.stochastic_basic_animate import animate_socp_basic
+from .StochasticOptimalControl.stochastic_basic.stochastic_basic_run import run_socp_basic
+
 
 # state_estimator
 from .StochasticOptimalControl.state_estimator.geometrical_state_estimate import get_states_from_muscle_lengths
 
 # utils
-from .StochasticOptimalControl.utils import ExampleType, solve, get_print_tol
+from .StochasticOptimalControl.utils import ExampleType, solve
+from .StochasticOptimalControl.save_utils import get_print_tol

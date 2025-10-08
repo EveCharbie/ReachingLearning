@@ -90,9 +90,8 @@ def prepare_ocp(
     n_shooting: int,
     force_field_magnitude: float = 0,
     example_type=ExampleType.CIRCLE,
+    n_threads: int = 12
 ) -> dict[str, any]:
-
-    n_threads = 12
 
     # Model
     model = DeterministicArmModel(force_field_magnitude=force_field_magnitude)

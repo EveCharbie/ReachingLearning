@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from ..utils import get_target_position, get_dm_value
+from ..plot_utils import set_columns_suptitles
 
 
 OCP_color = "#5DC962"
@@ -47,10 +48,10 @@ def plot_states(variable_data, ocp, save_path_ocp):
     axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], ".", markersize=1, color=OCP_color)
 
     # Reintegration
-    axs[0, 0].plot(time_vector, variable_data["q_integrated"][0, :], "-", linewidth=2, color=OCP_color)
-    axs[0, 1].plot(time_vector, variable_data["q_integrated"][1, :], "-", linewidth=2, color=OCP_color)
-    axs[1, 0].plot(time_vector, variable_data["qdot_integrated"][0, :], "-", linewidth=2, color=OCP_color)
-    axs[1, 1].plot(time_vector, variable_data["qdot_integrated"][1, :], "-", linewidth=2, color=OCP_color)
+    axs[0, 0].plot(time_vector, variable_data["q_integrated"][0, :], "-", linewidth=0.5, color=OCP_color)
+    axs[0, 1].plot(time_vector, variable_data["q_integrated"][1, :], "-", linewidth=0.5, color=OCP_color)
+    axs[1, 0].plot(time_vector, variable_data["qdot_integrated"][0, :], "-", linewidth=0.5, color=OCP_color)
+    axs[1, 1].plot(time_vector, variable_data["qdot_integrated"][1, :], "-", linewidth=0.5, color=OCP_color)
 
     # Bounds
     axs[0, 0].fill_between(time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, :], color="lightgrey")
@@ -81,21 +82,6 @@ def plot_states(variable_data, ocp, save_path_ocp):
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
-
-
-def set_columns_suptitles(fig, axs):
-
-    column_titles = ["Shoulder muscles", "Elbow muscles", "Biarticular muscles"]
-
-    # Get the position of each column and add titles
-    pad = 0.02  # spacing from the top
-    for j, col_title in enumerate(column_titles):
-        # Calculate x position based on subplot positions
-        x_pos = (axs[0, j].get_position().x0 + axs[0, j].get_position().x1) / 2
-        y_pos = axs[0, j].get_position().y1 + pad
-        fig.text(x_pos, y_pos, col_title, ha="center", va="bottom", fontsize=14, weight="bold")
-
-    return fig, axs
 
 
 def plot_controls(variable_data, ocp, save_path_ocp):

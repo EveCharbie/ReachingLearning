@@ -14,30 +14,14 @@ class ArmModel:
 
     def __init__(
         self,
-        sensory_noise_magnitude: np.ndarray | cas.DM,
-        motor_noise_magnitude: np.ndarray | cas.DM,
         force_field_magnitude: float = 0.0,
-        nb_random: int = 1,
+        n_random: int = 1,
     ):
         # Add the biorbd model here
         self.biorbd_model = biorbd.Model("../ReachingLearning/StochasticOptimalControl/models/arm_model.bioMod")
 
-        self.motor_noise_magnitude = motor_noise_magnitude
-        self.sensory_noise_magnitude = sensory_noise_magnitude
-        self.nb_random = nb_random
+        self.n_random = n_random
         self.force_field_magnitude = force_field_magnitude
-
-        n_noised_controls = 6
-        n_references = 4
-        self.n_feedbacks = 4
-        n_noised_states = 10
-        n_noise = motor_noise_magnitude.shape[0] + sensory_noise_magnitude.shape[0]
-        self.matrix_shape_k = (n_noised_controls, n_references)
-        self.matrix_shape_c = (n_noised_states, n_noise)
-        self.matrix_shape_a = (n_noised_states, n_noised_states)
-        self.matrix_shape_cov = (n_noised_states, n_noised_states)
-        self.matrix_shape_cov_cholesky = (n_noised_states, n_noised_states)
-        self.matrix_shape_m = (n_noised_states, n_noised_states)
 
         # self.Faparam = np.array(
         #     [
@@ -81,6 +65,39 @@ class ArmModel:
 
         self.friction_coefficients = np.array([[0.05, 0.025], [0.025, 0.05]])
 
+    @staticmethod
+    def reshape_matrix_to_vector(matrix: cas.MX | cas.DM) -> cas.MX | cas.DM:
+        matrix_shape = matrix.shape
+        vector = type(matrix)()
+        for i_shape in range(matrix_shape[0]):
+            for j_shape in range(matrix_shape[1]):
+                vector = cas.vertcat(vector, matrix[i_shape, j_shape])
+        return vector
+
+    @staticmethod
+    def reshape_vector_to_matrix(vector: cas.MX | cas.DM, matrix_shape: tuple[int, ...]) -> cas.MX | cas.DM:
+        matrix = type(vector).zeros(matrix_shape)
+        idx = 0
+        for i_shape in range(matrix_shape[0]):
+            for j_shape in range(matrix_shape[1]):
+                matrix[i_shape, j_shape] = vector[idx]
+                idx += 1
+        return matrix
+
+    def get_mean_q(self, x):
+        q = x[:self.nb_q]
+        for i_random in range(1, self.n_random):
+            q = cas.horzcat(q, x[i_random * self.nb_q:(i_random + 1) * self.nb_q])
+        q_mean = cas.sum2(q) / self.n_random
+        return q_mean
+
+    def get_mean_qdot(self, x):
+        qdot = x[self.q_offset : self.q_offset + self.nb_q]
+        for i_random in range(1, self.n_random):
+            qdot = cas.horzcat(qdot, x[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q])
+        qdot_mean = cas.sum2(qdot) / self.n_random
+        return qdot_mean
+
     @property
     def nb_muscles(self):
         return 6
@@ -100,6 +117,10 @@ class ArmModel:
     @property
     def muscle_names(self):
         return [f"muscle_{i}" for i in range(self.nb_muscles)]
+
+    @property
+    def q_offset(self):
+        return self.nb_q * self.n_random
 
     # def get_muscle_length(self, q):
     #     """

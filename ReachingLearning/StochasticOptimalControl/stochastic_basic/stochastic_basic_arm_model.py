@@ -1,0 +1,109 @@
+import casadi as cas
+import numpy as np
+
+from ..models.arm_model import ArmModel
+
+
+class StochasticBasicArmModel(ArmModel):
+    def __init__(
+        self,
+        motor_noise_std: float,
+        wPq_std: float,
+        wPqdot_std: float,
+        dt: float,
+        force_field_magnitude: float = 0,
+        n_random: int = 20,
+    ):
+        ArmModel.__init__(
+            self,
+            force_field_magnitude=force_field_magnitude,
+            n_random=n_random,
+        )
+
+        self.n_random = n_random
+        self.force_field_magnitude = force_field_magnitude
+        self.n_references = 4  # 2 hand position + 2 hand velocity
+        self.n_noises = self.n_references + self.nb_muscles
+
+        motor_noise_magnitude = cas.DM(
+            np.array([motor_noise_std**2 / dt] * self.nb_muscles)
+        )
+        hand_sensory_noise_magnitude = cas.DM(
+            np.array(
+                [
+                    wPq_std**2 / dt,  # Hand position
+                    wPq_std**2 / dt,
+                    wPqdot_std**2 / dt,  # Hand velocity
+                    wPqdot_std**2 / dt,
+                ]
+            )
+        )
+        self.motor_noise_magnitude = motor_noise_magnitude
+        self.hand_sensory_noise_magnitude = hand_sensory_noise_magnitude
+
+        self.matrix_shape_k_fb = (self.nb_q, self.n_references)
+
+    def sensory_reference(self, q, qdot, sensory_noise):
+        """
+        Sensory feedback: hand position and velocity
+        """
+        ee_pos = self.end_effector_position(q)
+        ee_vel = self.end_effector_velocity(q, qdot)
+        return cas.vertcat(ee_pos, ee_vel) + sensory_noise
+
+    def collect_tau(self, q, qdot, muscle_activations, k_fb, ref_fb, sensory_noise):
+        """
+        Collect all tau components
+        """
+        muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations)
+        tau_force_field = self.force_field(q, self.force_field_magnitude)
+        tau_fb = k_fb @ (self.sensory_reference(q, qdot, sensory_noise) - ref_fb)
+        tau_friction = - self.friction_coefficients @ qdot
+        torques_computed = muscles_tau + tau_force_field + tau_fb + tau_friction
+        return torques_computed
+
+    def dynamics(
+        self,
+        x_single,
+        u_single,
+        noise_single,
+    ) -> cas.Function:
+        """
+        Variables:
+        - q (2 x n_random, n_shooting + 1)
+        - qdot (2 x n_random, n_shooting + 1)
+        - muscle (6, n_shooting)
+        - k_fb (4 x 6, n_shooting)
+        - ref_fb (4, n_shooting)
+        Noises:
+        - motor_noise (6 x n_random, n_shooting)
+        - sensory_noise (4 x n_random, n_shooting)
+        """
+
+        # Collect variables
+        muscle = u_single[:self.nb_muscles]
+        muscle_offset = self.nb_muscles
+        k_fb = self.reshape_vector_to_matrix(u_single[muscle_offset : muscle_offset + self.n_references * self.nb_q], self.matrix_shape_k_fb)
+        k_fb_offset = muscle_offset + self.n_references * self.nb_q
+        ref_fb = u_single[k_fb_offset : k_fb_offset + self.n_references]
+        qddot = cas.MX.zeros(self.nb_q * self.n_random)
+        for i_random in range(self.n_random):
+            q_this_time = x_single[i_random * self.nb_q: (i_random + 1) * self.nb_q]
+            qdot_this_time = x_single[
+                             self.q_offset + i_random * self.nb_q: self.q_offset + (i_random + 1) * self.nb_q]
+            motor_noise_this_time = noise_single[: self.nb_muscles]
+            sensory_noise_this_time = noise_single[self.nb_muscles : self.nb_muscles + self.n_references]
+
+            # Get the real muscle activations (noised and avoid negative values)
+            noised_muscle_activations = muscle + motor_noise_this_time
+            noised_muscle_activations = cas.fabs(noised_muscle_activations)  # In [0, inf[ instead of [1e-6, 1]
+
+            # Collect tau components
+            torques_computed = self.collect_tau(q_this_time, qdot_this_time, noised_muscle_activations, k_fb, ref_fb, sensory_noise_this_time)
+
+            # Dynamics
+            qddot[i_random * self.nb_q: (i_random + 1) * self.nb_q] = self.forward_dynamics(q_this_time, qdot_this_time, torques_computed)
+
+        dxdt = cas.vertcat(x_single[self.q_offset:], qddot)
+        return dxdt
+

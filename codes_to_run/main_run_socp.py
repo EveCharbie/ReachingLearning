@@ -1,24 +1,15 @@
-import pickle
 from datetime import datetime
-import os
-
 
 from ReachingLearning import (
     ExampleType,
-    solve,
-    get_print_tol,
-    prepare_ocp,
-    save_ocp,
-    plot_ocp,
-    animate_ocp,
-    # prepare_basic_socp,
-    # save_basic_socp,
+    run_ocp,
+    run_socp_basic,
 )
 
 
 RUN_OCP = False
-RUN_SOCP = True
-print(RUN_OCP, RUN_SOCP)
+RUN_SOCP_BASIC = True
+print(RUN_OCP, RUN_SOCP_BASIC)
 print(datetime.now().strftime("%d-%m %H:%M:%S"))
 
 PLOT_FLAG = True
@@ -27,8 +18,10 @@ example_type = ExampleType.CIRCLE
 force_field_magnitude = 0
 
 
-nb_random = 5
-n_threads = 5
+n_random = 5
+n_threads = 12
+n_simulations = 30
+seed = 0
 
 n_q = 2
 dt = 0.01
@@ -40,148 +33,43 @@ motor_noise_std = 0.01
 wPq_std = 3e-4
 wPqdot_std = 0.0024
 
-# solver.set_linear_solver("ma97")
 # solver.set_bound_frac(1e-8)
 # solver.set_bound_push(1e-8)
 
-# --- Run the deterministic --- #
-save_path_ocp = f"../results/StochasticOptimalControl/ocp_forcefield{force_field_magnitude}_{example_type.value}.pkl"
 
-ocp = prepare_ocp(
+# --- Run optimizations --- #
+# run_ocp(
+#     final_time=final_time,
+#     n_shooting=n_shooting,
+#     motor_noise_std=motor_noise_std,
+#     force_field_magnitude=force_field_magnitude,
+#     example_type=example_type,
+#     n_threads=n_threads,
+#     tol=tol,
+#     n_simulations=n_simulations,
+#     RUN_OCP=RUN_OCP,
+#     PLOT_FLAG=PLOT_FLAG,
+#     ANIMATE_FLAG=ANIMATE_FLAG,
+# )
+
+run_socp_basic(
     final_time=final_time,
     n_shooting=n_shooting,
-    example_type=example_type,
+    motor_noise_std=motor_noise_std,
+    wPq_std=wPq_std,
+    wPqdot_std=wPqdot_std,
     force_field_magnitude=force_field_magnitude,
+    example_type=example_type,
+    n_random=n_random,
+    seed=seed,
+    n_threads=n_threads,
+    tol=tol,
+    n_simulations=n_simulations,
+    RUN_SOCP_BASIC=RUN_SOCP_BASIC,
+    PLOT_FLAG=PLOT_FLAG,
+    ANIMATE_FLAG=ANIMATE_FLAG,
 )
 
-if RUN_OCP:
-    print("\nSolving OCP............................................................................................\n")
-    w_opt, solver = solve(ocp)
-    variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
-else:
-    ocp_print_tol = get_print_tol(tol)
-    save_path_ocp = save_path_ocp.replace(".pkl", f"_CVG_{ocp_print_tol}.pkl")
-    if not os.path.exists(save_path_ocp):
-        raise FileNotFoundError(f"The file {save_path_ocp} does not exist, please run the optimization first.")
-
-    with open(save_path_ocp, "rb") as file:
-        variable_data = pickle.load(file)
-
-
-if PLOT_FLAG:
-    plot_ocp(
-        variable_data,
-        ocp,
-        motor_noise_std,
-        force_field_magnitude,
-        save_path_ocp,
-        n_simulations=30,
-    )
-
-
-if ANIMATE_FLAG:
-    animate_ocp(
-        final_time,
-        n_shooting,
-        variable_data["q_opt"],
-        variable_data["muscle_opt"],
-    )
-
-#
-#
-# # --- Run the SOCP --- #
-# # The ocp sol to use for all socp runs
-# print_tol = get_print_tol(tol)
-# save_path_ocp_CVG = save_path_ocp.replace(".pkl", f"_CVG_{print_tol}.pkl")
-#
-# # Some other parameters common to all socp runs
-# print_motor_noise_std = "{:1.1e}".format(motor_noise_std)
-# print_wPq_std = "{:1.1e}".format(wPq_std)
-# print_wPqdot_std = "{:1.1e}".format(wPqdot_std)
-#
-# # socp basic specific paramters
-# save_path_socp_basic = f"results/socp_basic_forcefield{force_field_magnitude}_nbrandoms{nb_random}_{example_type.value}_{print_motor_noise_std}_{print_wPq_std}_{print_wPqdot_std}.pkl"
-# motor_noise_magnitude = cas.DM(np.array([motor_noise_std**2 / dt for _ in range(n_q)]))  # All DoFs except root
-# sensory_noise_magnitude = cas.DM(
-#     cas.vertcat(
-#         np.array([wPq_std**2 / dt for _ in range(n_q)]),
-#         np.array([wPqdot_std**2 / dt for _ in range(n_q)]),
-#     )
-# )  # since the head is fixed to the pelvis, the vestibular feedback is in the states ref
-#
-# if RUN_SOCP:
-#
-#     with open(save_path_ocp_CVG, "rb") as file:
-#         data = pickle.load(file)
-#         q_last = data["q_sol"]
-#         qdot_last = data["qdot_sol"]
-#         activations_last = data["activations_sol"]
-#         excitations_last = data["excitations_sol"]
-#         tau_last = data["tau_sol"]
-#         k_last = None
-#         ref_last = None
-#
-#     motor_noise_numerical, sensory_noise_numerical, socp = prepare_basic_socp(
-#         final_time=final_time,
-#         n_shooting=n_shooting,
-#         hand_final_position=hand_final_position,
-#         motor_noise_magnitude=motor_noise_magnitude,
-#         sensory_noise_magnitude=sensory_noise_magnitude,
-#         force_field_magnitude=force_field_magnitude,
-#         example_type=example_type,
-#         q_last=q_last,
-#         qdot_last=qdot_last,
-#         activations_last=activations_last,
-#         excitations_last=excitations_last,
-#         tau_last=tau_last,
-#         k_last=k_last,
-#         ref_last=ref_last,
-#         nb_random=nb_random,
-#         n_threads=n_threads,
-#     )
-#     # socp.add_plot_penalty()
-#     # socp.add_plot_ipopt_outputs()
-#     # socp.check_conditioning()
-#
-#     # date_time = datetime.now().strftime("%d-%m-%H-%M-%S")
-#     # path_to_temporary_results = f"temporary_results_{date_time}"
-#     # if path_to_temporary_results not in os.listdir("results/"):
-#     #     os.mkdir("results/" + path_to_temporary_results)
-#     # nb_iter_save = 10
-#     # socp.save_intermediary_ipopt_iterations("results/" + path_to_temporary_results, "SOCP", nb_iter_save)
-#
-#     solver.set_tol(tol)
-#     print("\nSolving SOCP BASIC.....................................................................................\n")
-#     sol_socp = socp.solve(solver)
-#
-#     save_basic_socp(sol_socp, save_path_socp_basic, tol)
-#
-# else:
-#     variable_data = load_variable_data(save_path_ocp, tol)
-#
-# if PLOT_FLAG:
-#     print("Not implemented")
-#     # plot_basic_socp(
-#     #     sol_socp,
-#     #     motor_noise_std,
-#     #     hand_initial_position,
-#     #     hand_final_position,
-#     #     n_simulations=100,
-#     # )
-#
-# if ANIMATE_FLAG:
-#     print("Not iomplemented")
-#     # q_sol = sol_ocp.decision_states(to_merge=SolutionMerge.NODES)["q"]
-#     # excitations_sol = sol_ocp.decision_controls(to_merge=SolutionMerge.NODES)["muscles"]
-#     # animate_basic_socp(
-#     #     example_type,
-#     #     final_time,
-#     #     n_shooting,
-#     #     q_sol,
-#     #     excitations_sol,
-#     # )
-#
-#
 # #
 # # # --- Run the SOCP+ (variable noise) --- #
 # # if RUN_SOCP_VARIABLE:
@@ -239,7 +127,7 @@ if ANIMATE_FLAG:
 # #         tau_joints_last=tau_joints_last,
 # #         k_last=None,
 # #         ref_last=None,
-# #         nb_random=nb_random,
+# #         n_random=n_random,
 # #     )
 # #
 # #     socp.add_plot_penalty()
@@ -276,9 +164,9 @@ if ANIMATE_FLAG:
 # #
 # #     save_path = save_path.replace(".", "p")
 # #     if sol_socp.status != 0:
-# #         save_path = save_path.replace("ppkl", f"_DMS_{nb_random}random_DVG_{print_tol}.pkl")
+# #         save_path = save_path.replace("ppkl", f"_DMS_{n_random}random_DVG_{print_tol}.pkl")
 # #     else:
-# #         save_path = save_path.replace("ppkl", f"_DMS_{nb_random}random_CVG_{print_tol}.pkl")
+# #         save_path = save_path.replace("ppkl", f"_DMS_{n_random}random_CVG_{print_tol}.pkl")
 # #
 # #     # --- Save the results --- #
 # #     with open(save_path, "wb") as file:
@@ -367,7 +255,7 @@ if ANIMATE_FLAG:
 # #         tau_joints_last=tau_joints_last,
 # #         k_last=None,
 # #         ref_last=None,
-# #         nb_random=nb_random,
+# #         n_random=n_random,
 # #     )
 # #
 # #     socp.add_plot_penalty()
@@ -405,9 +293,9 @@ if ANIMATE_FLAG:
 # #
 # #     save_path = save_path.replace(".", "p")
 # #     if sol_socp.status != 0:
-# #         save_path = save_path.replace("ppkl", f"_DMS_{nb_random}random_DVG_{print_tol}.pkl")
+# #         save_path = save_path.replace("ppkl", f"_DMS_{n_random}random_DVG_{print_tol}.pkl")
 # #     else:
-# #         save_path = save_path.replace("ppkl", f"_DMS_{nb_random}random_CVG_{print_tol}.pkl")
+# #         save_path = save_path.replace("ppkl", f"_DMS_{n_random}random_CVG_{print_tol}.pkl")
 # #
 # #     # --- Save the results --- #
 # #     with open(save_path, "wb") as file:
@@ -496,7 +384,7 @@ if ANIMATE_FLAG:
 # #         k_last=k_last,
 # #         ref_last=ref_last,
 # #         ref_ff_last=ref_ff_last,
-# #         nb_random=nb_random,
+# #         n_random=n_random,
 # #     )
 # #     socp.add_plot_penalty()
 # #     socp.add_plot_ipopt_outputs()
@@ -548,9 +436,9 @@ if ANIMATE_FLAG:
 # #     }
 # #
 # #     if sol_socp.status != 0:
-# #         save_path = save_path.replace("ppkl", f"_DMS_{nb_random}random_DVG_{print_tol}.pkl")
+# #         save_path = save_path.replace("ppkl", f"_DMS_{n_random}random_DVG_{print_tol}.pkl")
 # #     else:
-# #         save_path = save_path.replace("ppkl", f"_DMS_{nb_random}random_CVG_{print_tol}.pkl")
+# #         save_path = save_path.replace("ppkl", f"_DMS_{n_random}random_CVG_{print_tol}.pkl")
 # #
 # #     # --- Save the results --- #
 # #     with open(save_path, "wb") as file:
