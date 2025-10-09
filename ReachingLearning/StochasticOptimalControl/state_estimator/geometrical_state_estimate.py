@@ -56,7 +56,7 @@ def get_elbow_angle_from_brachialis(brachialis_length):
 
     # Handle the cosine ambiguity
     # phi = cas.fmod(phi, np.pi/2)
-    phi = cas.if_else(brachialis_length ** 2 < (brachialis_insertion_norm ** 2 + brachialis_origin_norm ** 2), np.pi - phi, phi)
+    # phi = cas.if_else(brachialis_length ** 2 < (brachialis_insertion_norm ** 2 + brachialis_origin_norm ** 2), np.pi - phi, phi)
 
     theta_elbow_bra = phi + eta_upper + eta_lower
     return theta_elbow_bra
@@ -87,7 +87,7 @@ def get_elbow_angle_from_lateral_triceps(triceps_lateral_length):
 
     # Handle the cosine ambiguity
     # eta_vp_vp = cas.fmod(eta_vp_vp, np.pi/2)
-    eta_vp_vp = cas.if_else(length_vp1_vp2 ** 2 > (np.linalg.norm(vp1_in_local) ** 2 + np.linalg.norm(vp2_in_local) ** 2), np.pi - eta_vp_vp, eta_vp_vp)
+    # eta_vp_vp = cas.if_else(length_vp1_vp2 ** 2 > (np.linalg.norm(vp1_in_local) ** 2 + np.linalg.norm(vp2_in_local) ** 2), np.pi - eta_vp_vp, eta_vp_vp)
 
     # phi
     triceps_lateral_origin_in_local = np.array([0.11, -0.025])
@@ -99,7 +99,7 @@ def get_elbow_angle_from_lateral_triceps(triceps_lateral_length):
 
     # Handle the cosine ambiguity
     # phi = cas.fmod(phi, np.pi/2)
-    phi = cas.if_else(residual_length ** 2 > (triceps_lateral_origin_norm ** 2 + vp1_norm ** 2), np.pi - phi, phi)
+    # phi = cas.if_else(residual_length ** 2 > (triceps_lateral_origin_norm ** 2 + vp1_norm ** 2), np.pi - phi, phi)
 
     theta_elbow_tri_lat = 2*np.pi - eta_1 - phi - eta_vp_vp - eta_upper
     return theta_elbow_tri_lat
@@ -118,10 +118,12 @@ def get_states_from_muscle_lengths(muscle_lengths):
     q1 = (theta_shoulder_ant + theta_shoulder_post) / 2
 
     # Elbow
-    theta_elbow_bra = get_elbow_angle_from_brachialis(muscle_lengths[0])
-    theta_elbow_tri = get_elbow_angle_from_lateral_triceps(muscle_lengths[1])
-    q2 = np.pi - ((theta_elbow_bra + theta_elbow_tri) / 2)
+    theta_elbow_bra = np.pi - get_elbow_angle_from_brachialis(muscle_lengths[0])
+    theta_elbow_tri = np.pi - get_elbow_angle_from_lateral_triceps(muscle_lengths[1])
+    q2 = (theta_elbow_bra + theta_elbow_tri) / 2
 
+    print(theta_shoulder_ant, "  ", theta_shoulder_post)
+    print(theta_elbow_bra, "  ", theta_elbow_tri)
     return cas.vertcat(q1, q2)[:, 0]
 
 
