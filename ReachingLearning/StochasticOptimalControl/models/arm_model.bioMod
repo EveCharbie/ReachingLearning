@@ -79,7 +79,7 @@ segment	lower_arm
 		0.000000	0.000000	0.000000	1.000000
 	rotations	z
 	rangesQ 
-		0.000000	3.141593
+		0.000000	2.748894
 
 	mass	1.0
 	CenterOfMass	0.160000	0.000000	0.000000
@@ -115,9 +115,9 @@ muscle	brachialis
 	type	hilldegroote
 	statetype	degroote
 	musclegroup	upper_arm_to_lower_arm
-	originposition	0.11	0.03	0.0
+	originposition	0.11	0.0	0.0
 	insertionposition	0.025	0.015	0.0
-	optimallength	0.1751
+	optimallength	0.1768
 	maximalforce	572.4000
 	maxvelocity	10.0000
 endmuscle

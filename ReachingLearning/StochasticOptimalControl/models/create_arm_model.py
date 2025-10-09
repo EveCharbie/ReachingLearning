@@ -72,7 +72,7 @@ def create_initial_model() -> BiomechanicalModelReal:
             parent_name="upper_arm",
             rotations=Rotations.Z,
             dof_names=["elbow_angle"],
-            q_ranges=RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[np.pi]),
+            q_ranges=RangeOfMotion(range_type=Ranges.Q, min_bound=[0], max_bound=[7/8 * np.pi]),
             segment_coordinate_system=SegmentCoordinateSystemReal(scs=scs_lower_arm, is_scs_local=True),
             inertia_parameters=InertiaParametersReal(
                 mass=1.0, center_of_mass=np.array([0.16, 0, 0]), inertia=np.array([0, 0, 0.045])
@@ -116,7 +116,7 @@ def create_initial_model() -> BiomechanicalModelReal:
                 parent_name="upper_arm",
                 muscle_name="brachialis",
                 muscle_group="upper_arm_to_lower_arm",
-                position=np.array([0.11, 0.03, 0.0]),  # Eye balled from the CoM!
+                position=np.array([0.11, 0.0, 0.0]),  # Eye balled from the CoM!
             ),
             insertion_position=ViaPointReal(
                 name="brachialis_insertion",

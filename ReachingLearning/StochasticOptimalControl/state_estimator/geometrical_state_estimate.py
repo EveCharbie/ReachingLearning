@@ -40,7 +40,7 @@ def get_shoulder_angle_from_deltoid_posterior(deltoid_posterior_length):
 
 def get_elbow_angle_from_brachialis(brachialis_length):
     # eta upper
-    brachialis_origin_in_local = np.array([0.11, 0.03])
+    brachialis_origin_in_local = np.array([0.11, 0.0])
     upper_arm_length = 0.3
     brachialis_origin_from_elbow = upper_arm_length - brachialis_origin_in_local[0]
     eta_upper = np.abs(cas.atan(brachialis_origin_in_local[1] / brachialis_origin_from_elbow))
