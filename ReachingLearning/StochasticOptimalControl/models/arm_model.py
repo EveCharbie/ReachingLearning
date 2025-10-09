@@ -141,6 +141,15 @@ class ArmModel:
         qdot_biorbd = biorbd.GeneralizedVelocity(qdot)
         return self.biorbd_model.muscularJointTorque(muscles_states, q_biorbd, qdot_biorbd).to_mx()
 
+    def get_muscle_lengths(self, q: cas.MX) -> cas.MX:
+        qdot = cas.MX.zeros(q.shape)
+        muscle_lengths = cas.MX()
+        q_biorbd = biorbd.GeneralizedCoordinates(q)
+        for muscle in self.biorbd_model.muscles():
+            muscle.updateMuscles(q, qdot)
+            muscle_lengths = cas.vertcat(muscle_lengths, muscle.length(q_biorbd).to_mx())
+        return muscle_lengths
+
     def forward_dynamics(self, q: cas.MX, qdot: cas.MX, tau: cas.MX) -> cas.MX:
         return self.biorbd_model.ForwardDynamics(q, qdot, tau).to_mx()
 
