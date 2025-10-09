@@ -14,7 +14,10 @@ def get_shoulder_angle_from_deltoid_anterior(deltoid_anterior_length):
     # phi
     deltoid_anterior_origin_norm = np.linalg.norm(deltoid_anterior_origin_in_global)
     deltoid_anterior_insertion_norm = np.linalg.norm(deltoid_anterior_insertion_in_local)
-    phi = cas.acos((deltoid_anterior_length ** 2 - deltoid_anterior_insertion_norm ** 2 - deltoid_anterior_origin_norm ** 2) / (-2 * deltoid_anterior_insertion_norm * deltoid_anterior_origin_norm))
+    phi = cas.acos(
+        (deltoid_anterior_length**2 - deltoid_anterior_insertion_norm**2 - deltoid_anterior_origin_norm**2)
+        / (-2 * deltoid_anterior_insertion_norm * deltoid_anterior_origin_norm)
+    )
 
     theta_shoulder_ant = np.pi - phi - eta - alpha
     return theta_shoulder_ant
@@ -32,7 +35,10 @@ def get_shoulder_angle_from_deltoid_posterior(deltoid_posterior_length):
     # phi
     deltoid_posterior_origin_norm = np.linalg.norm(deltoid_posterior_origin_in_global)
     deltoid_posterior_insertion_norm = np.linalg.norm(deltoid_posterior_insertion_in_local)
-    phi = cas.acos((deltoid_posterior_length ** 2 - deltoid_posterior_insertion_norm ** 2 - deltoid_posterior_origin_norm ** 2) / (-2 * deltoid_posterior_insertion_norm * deltoid_posterior_origin_norm))
+    phi = cas.acos(
+        (deltoid_posterior_length**2 - deltoid_posterior_insertion_norm**2 - deltoid_posterior_origin_norm**2)
+        / (-2 * deltoid_posterior_insertion_norm * deltoid_posterior_origin_norm)
+    )
 
     theta_shoulder_post = phi + eta - alpha
     return theta_shoulder_post
@@ -50,9 +56,12 @@ def get_elbow_angle_from_brachialis(brachialis_length):
     eta_lower = np.abs(cas.atan(brachialis_insertion_in_local[1] / brachialis_insertion_in_local[0]))
 
     # phi
-    brachialis_origin_norm = np.sqrt(brachialis_origin_from_elbow ** 2 + brachialis_origin_in_local[1] ** 2)
+    brachialis_origin_norm = np.sqrt(brachialis_origin_from_elbow**2 + brachialis_origin_in_local[1] ** 2)
     brachialis_insertion_norm = np.linalg.norm(brachialis_insertion_in_local)
-    phi = cas.acos((brachialis_length ** 2 - brachialis_insertion_norm ** 2 - brachialis_origin_norm ** 2) / (-2 * brachialis_insertion_norm * brachialis_origin_norm))
+    phi = cas.acos(
+        (brachialis_length**2 - brachialis_insertion_norm**2 - brachialis_origin_norm**2)
+        / (-2 * brachialis_insertion_norm * brachialis_origin_norm)
+    )
 
     # Handle the cosine ambiguity
     # phi = cas.fmod(phi, np.pi/2)
@@ -60,6 +69,7 @@ def get_elbow_angle_from_brachialis(brachialis_length):
 
     theta_elbow_bra = phi + eta_upper + eta_lower
     return theta_elbow_bra
+
 
 def get_elbow_angle_from_lateral_triceps(triceps_lateral_length):
     # muscle segment lengths
@@ -83,7 +93,9 @@ def get_elbow_angle_from_lateral_triceps(triceps_lateral_length):
     eta_1 = np.abs(cas.atan(vp2_in_local[1] / vp2_in_local[0]))
 
     # eta vp1-vp2
-    eta_vp_vp = cas.acos(np.dot(vp1_in_local, vp2_in_local) / np.linalg.norm(vp1_in_local) / np.linalg.norm(vp2_in_local))
+    eta_vp_vp = cas.acos(
+        np.dot(vp1_in_local, vp2_in_local) / np.linalg.norm(vp1_in_local) / np.linalg.norm(vp2_in_local)
+    )
 
     # Handle the cosine ambiguity
     # eta_vp_vp = cas.fmod(eta_vp_vp, np.pi/2)
@@ -93,15 +105,20 @@ def get_elbow_angle_from_lateral_triceps(triceps_lateral_length):
     triceps_lateral_origin_in_local = np.array([0.11, -0.025])
     upper_arm_length = 0.3
     triceps_lateral_origin_from_elbow = upper_arm_length - triceps_lateral_origin_in_local[0]
-    triceps_lateral_origin_norm = np.sqrt(triceps_lateral_origin_from_elbow ** 2 + triceps_lateral_origin_in_local[1] ** 2)
+    triceps_lateral_origin_norm = np.sqrt(
+        triceps_lateral_origin_from_elbow**2 + triceps_lateral_origin_in_local[1] ** 2
+    )
     vp1_norm = np.linalg.norm(vp1_in_local)
-    phi = cas.acos((residual_length ** 2 - triceps_lateral_origin_norm ** 2 - vp1_norm ** 2) / (-2 * triceps_lateral_origin_norm * vp1_norm))
+    phi = cas.acos(
+        (residual_length**2 - triceps_lateral_origin_norm**2 - vp1_norm**2)
+        / (-2 * triceps_lateral_origin_norm * vp1_norm)
+    )
 
     # Handle the cosine ambiguity
     # phi = cas.fmod(phi, np.pi/2)
     # phi = cas.if_else(residual_length ** 2 > (triceps_lateral_origin_norm ** 2 + vp1_norm ** 2), np.pi - phi, phi)
 
-    theta_elbow_tri_lat = 2*np.pi - eta_1 - phi - eta_vp_vp - eta_upper
+    theta_elbow_tri_lat = 2 * np.pi - eta_1 - phi - eta_vp_vp - eta_upper
     return theta_elbow_tri_lat
 
 
@@ -125,5 +142,3 @@ def get_states_from_muscle_lengths(muscle_lengths):
     print(theta_shoulder_ant, "  ", theta_shoulder_post)
     print(theta_elbow_bra, "  ", theta_elbow_tri)
     return cas.vertcat(q1, q2)[:, 0]
-
-

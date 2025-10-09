@@ -6,28 +6,22 @@ import pytest
 from ReachingLearning import get_states_from_muscle_lengths
 
 
-@pytest.mark.parametrize("elbow_angle",
-                         [
-                             15,
-                             30,
-                             45,
-                             60,
-                             75,
-                             90,
-                             105,
-                             120,
-                             135,
-                             # 150,  # When too bent, the estimate is bad because the opp/hypo ratio is too small
-                         ])
-@pytest.mark.parametrize("shoulder_angle",
-                         [
-                             15,
-                             30,
-                             45,
-                             60,
-                             75,
-                             90
-                        ])
+@pytest.mark.parametrize(
+    "elbow_angle",
+    [
+        15,
+        30,
+        45,
+        60,
+        75,
+        90,
+        105,
+        120,
+        135,
+        # 150,  # When too bent, the estimate is bad because the opp/hypo ratio is too small
+    ],
+)
+@pytest.mark.parametrize("shoulder_angle", [15, 30, 45, 60, 75, 90])
 def test_get_states_from_muscle_lengths(elbow_angle, shoulder_angle):
 
     biorbd_model = biorbd.Biorbd("../ReachingLearning/StochasticOptimalControl/models/arm_model.bioMod")
