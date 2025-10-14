@@ -92,28 +92,20 @@ def declare_noises(n_shooting, n_random, motor_noise_magnitude, sensory_noise_ma
     n_muscles = 6
     n_references = 4
 
-    motor_noise_numerical = np.zeros((n_muscles, n_random, n_shooting + 1))
-    sensory_noise_numerical = np.zeros((n_references, n_random, n_shooting + 1))
     noises_numerical = []
     for i_shooting in range(n_shooting):
         this_motor_noise_vector = np.zeros((n_muscles * n_random,))
         this_sensory_noise_vector = np.zeros((n_references * n_random,))
         for i_random in range(n_random):
-            motor_noise_numerical[:, i_random, i_shooting] = np.random.normal(
+            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = np.random.normal(
                 loc=np.zeros((n_muscles,)),
                 scale=np.reshape(np.array(motor_noise_magnitude), (n_muscles,)),
                 size=n_muscles,
             )
-            sensory_noise_numerical[:, i_random, i_shooting] = np.random.normal(
+            this_sensory_noise_vector[n_references * i_random : n_references * (i_random + 1)] = np.random.normal(
                 loc=np.zeros((n_references,)),
                 scale=np.reshape(np.array(sensory_noise_magnitude), (n_references,)),
                 size=n_references,
-            )
-            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = motor_noise_numerical[
-                :, i_random, i_shooting
-            ]
-            this_sensory_noise_vector[n_references * i_random : n_references * (i_random + 1)] = (
-                sensory_noise_numerical[:, i_random, i_shooting]
             )
         noises_numerical += [cas.vertcat(this_motor_noise_vector, this_sensory_noise_vector)]
     noises_single = cas.MX.sym("noises_single", (n_muscles + n_references) * n_random)

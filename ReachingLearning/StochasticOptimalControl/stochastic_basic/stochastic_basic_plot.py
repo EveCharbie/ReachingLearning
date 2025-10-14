@@ -99,7 +99,6 @@ def plot_states(variable_data, socp_basic, save_path_socp_basic):
         time_vector, variable_data["ubqdot"][1, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
     )
 
-    plt.tight_layout()
     save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_states.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()

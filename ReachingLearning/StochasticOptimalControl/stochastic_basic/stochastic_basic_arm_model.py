@@ -87,11 +87,13 @@ class StochasticBasicArmModel(ArmModel):
         k_fb_offset = muscle_offset + self.n_references * self.nb_q
         ref_fb = u_single[k_fb_offset : k_fb_offset + self.n_references]
         qddot = cas.MX.zeros(self.nb_q * self.n_random)
+        noise_offset = 0
         for i_random in range(self.n_random):
             q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
             qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
-            motor_noise_this_time = noise_single[: self.nb_muscles]
-            sensory_noise_this_time = noise_single[self.nb_muscles : self.nb_muscles + self.n_references]
+            motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_muscles]
+            sensory_noise_this_time = noise_single[noise_offset + self.nb_muscles : noise_offset + self.nb_muscles + self.n_references]
+            noise_offset += self.n_noises
 
             # Get the real muscle activations (noised and avoid negative values)
             noised_muscle_activations = muscle + motor_noise_this_time

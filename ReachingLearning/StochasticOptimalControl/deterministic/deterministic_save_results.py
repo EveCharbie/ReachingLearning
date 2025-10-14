@@ -70,7 +70,7 @@ def save_ocp(
     time_vector = np.linspace(0, final_time, n_shooting + 1)
 
     # Reintegrate the solution
-    x_integrated = integrate_single_shooting(ocp, np.hstack((q_opt[:, 0], qdot_opt[:, 0])), muscle_opt)
+    x_integrated = integrate_single_shooting(ocp, np.vstack((q_opt, qdot_opt)), muscle_opt)
     q_integrated = x_integrated[0:2, :]
     qdot_integrated = x_integrated[2:4, :]
 

@@ -145,7 +145,6 @@ def plot_controls(variable_data, ocp, save_path_ocp):
                 color="lightgrey",
             )
 
-    plt.tight_layout()
     save_path_fig = save_path_ocp.replace(".pkl", "_plot_controls.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()

@@ -1,5 +1,6 @@
 import pickle
 import os
+import numpy as np
 
 from ..utils import ExampleType, solve
 from ..save_utils import get_print_tol
@@ -73,10 +74,10 @@ def run_socp_basic(
             n_simulations=int(round(n_simulations / n_random)),
         )
 
-    # if ANIMATE_FLAG:
-    #     animate_socp_basic(
-    #         final_time,
-    #         n_shooting,
-    #         variable_data["q_opt"],
-    #         variable_data["muscle_opt"],
-    #     )
+    if ANIMATE_FLAG:
+        animate_socp_basic(
+            final_time,
+            n_shooting,
+            np.nanmean(variable_data["q_opt"], axis=1),
+            variable_data["muscle_opt"],
+        )

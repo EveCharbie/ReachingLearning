@@ -7,7 +7,7 @@ from ReachingLearning import (
 )
 
 
-RUN_OCP = False
+RUN_OCP = True
 RUN_SOCP_BASIC = True
 print(RUN_OCP, RUN_SOCP_BASIC)
 print(datetime.now().strftime("%d-%m %H:%M:%S"))
@@ -37,7 +37,7 @@ wPqdot_std = 0.0024
 # solver.set_bound_push(1e-8)
 
 
-# --- Run optimizations --- #
+# # --- Run optimizations --- #
 # run_ocp(
 #     final_time=final_time,
 #     n_shooting=n_shooting,
