@@ -115,9 +115,9 @@ muscle	brachialis
 	type	hilldegroote
 	statetype	degroote
 	musclegroup	upper_arm_to_lower_arm
-	originposition	0.11	0.0	0.0
+	originposition	0.11	-0.025	0.0
 	insertionposition	0.025	0.015	0.0
-	optimallength	0.1768
+	optimallength	0.1820
 	maximalforce	572.4000
 	maxvelocity	10.0000
 endmuscle

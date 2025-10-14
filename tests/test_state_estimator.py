@@ -24,6 +24,7 @@ from ReachingLearning import get_states_from_muscle_lengths
 @pytest.mark.parametrize("shoulder_angle", [15, 30, 45, 60, 75, 90])
 def test_get_states_from_muscle_lengths(elbow_angle, shoulder_angle):
 
+    np.random.seed(0)
     biorbd_model = biorbd.Biorbd("../ReachingLearning/StochasticOptimalControl/models/arm_model.bioMod")
 
     # Generate the data
@@ -37,6 +38,7 @@ def test_get_states_from_muscle_lengths(elbow_angle, shoulder_angle):
 
     # Test that the noised version is not too bad
     if elbow_angle < 135:
+        # There is too much error on the state estimate for angles above 135 deg
         muscle_noise_magnitude = 0.001
         noise = np.random.normal(0, muscle_noise_magnitude, len(muscle_lengths))
         q_estimated = get_states_from_muscle_lengths(muscle_lengths + noise)

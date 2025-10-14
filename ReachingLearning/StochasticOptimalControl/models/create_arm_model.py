@@ -116,7 +116,7 @@ def create_initial_model() -> BiomechanicalModelReal:
                 parent_name="upper_arm",
                 muscle_name="brachialis",
                 muscle_group="upper_arm_to_lower_arm",
-                position=np.array([0.11, 0.0, 0.0]),  # Eye balled from the CoM!
+                position=np.array([0.11, -0.025, 0.0]),  # Eye balled from the CoM!
             ),
             insertion_position=ViaPointReal(
                 name="brachialis_insertion",
