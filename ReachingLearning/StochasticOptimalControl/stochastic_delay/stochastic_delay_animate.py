@@ -8,8 +8,8 @@ def animate_socp_delay(
     muscles_opt,
 ):
     animate_socp_basic(
-            final_time,
-            n_shooting,
-            q_opt,
-            muscles_opt,
+        final_time,
+        n_shooting,
+        q_opt,
+        muscles_opt,
     )

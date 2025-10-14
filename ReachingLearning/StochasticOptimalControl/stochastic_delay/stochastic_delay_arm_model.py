@@ -18,20 +18,12 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
 
         if delay % dt != 0:
             raise ValueError(
-                f"The delay {delay} must be a multiple of the time step (final_time/n_shooting = {dt:.4f}s).")
+                f"The delay {delay} must be a multiple of the time step (final_time/n_shooting = {dt:.4f}s)."
+            )
         self.delay = delay
         self.nb_frames_delay = int(delay / dt)
 
-
-    def collect_tau(self,
-                    q,
-                    q_ee_delay,
-                    qdot,
-                    qdot_ee_delay,
-                    muscle_activations,
-                    k_fb,
-                    ref_fb,
-                    sensory_noise):
+    def collect_tau(self, q, q_ee_delay, qdot, qdot_ee_delay, muscle_activations, k_fb, ref_fb, sensory_noise):
         """
         Collect all tau components
         """
@@ -75,9 +67,13 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
             q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
             q_ee_delay_this_time = x_ee_delay_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
             qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
-            qdot_ee_delay_this_time = x_ee_delay_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
+            qdot_ee_delay_this_time = x_ee_delay_single[
+                self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q
+            ]
             motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_muscles]
-            sensory_noise_this_time = noise_single[noise_offset + self.nb_muscles : noise_offset + self.nb_muscles + self.n_references]
+            sensory_noise_this_time = noise_single[
+                noise_offset + self.nb_muscles : noise_offset + self.nb_muscles + self.n_references
+            ]
             noise_offset += self.n_noises
 
             # Get the real muscle activations (noised and avoid negative values)
@@ -93,7 +89,7 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
                 noised_muscle_activations,
                 k_fb,
                 ref_fb,
-                sensory_noise_this_time
+                sensory_noise_this_time,
             )
 
             # Dynamics

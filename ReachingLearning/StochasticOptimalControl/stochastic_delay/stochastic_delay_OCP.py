@@ -3,6 +3,7 @@ Stretch reflex has a delay of about 20ms (https://doi.org/10.1016/j.cub.2020.07.
 Reaction time after a visual stimuli (time between the stimuli and first EMG activation) can be smaller than 100ms (https://doi.org/10.1111/j.1460-9568.2010.07380.x) -> ee-feedback delayed by 100ms
 But here, I will only consider visual delay and visual feedback
 """
+
 import casadi as cas
 import numpy as np
 
@@ -11,7 +12,6 @@ from ..constraints_utils import mean_q_start_on_target, mean_q_reach_target, ref
 from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts, minimize_gains
 from .stochastic_delay_arm_model import StochasticDelayArmModel
 from ..stochastic_basic.stochastic_basic_OCP import declare_noises
-
 
 
 def declare_variables(
@@ -97,6 +97,7 @@ def declare_variables(
             w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
     return x, u, w, lbw, ubw, w0
 
+
 def declare_dynamics_equation(model, x_single, u_single, x_ee_delay_single, noises_single, dt):
     """
     Formulate discrete time dynamics
@@ -109,7 +110,11 @@ def declare_dynamics_equation(model, x_single, u_single, x_ee_delay_single, nois
     # Dynamics
     xdot = model.dynamics(x_single, u_single, x_ee_delay_single, noises_single)
     dynamics_func = cas.Function(
-        f"dynamics", [x_single, u_single, x_ee_delay_single, noises_single], [xdot], ["x", "u", "x_delay", "noise"], ["xdot"]
+        f"dynamics",
+        [x_single, u_single, x_ee_delay_single, noises_single],
+        [xdot],
+        ["x", "u", "x_delay", "noise"],
+        ["xdot"],
     )
     dynamics_func = dynamics_func.expand()
 
@@ -121,7 +126,13 @@ def declare_dynamics_equation(model, x_single, u_single, x_ee_delay_single, nois
         k3 = dynamics_func(x_next + h / 2 * k2, u_single, x_ee_delay_single, noises_single)
         k4 = dynamics_func(x_next + h * k3, u_single, x_ee_delay_single, noises_single)
         x_next += h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
-    integration_func = cas.Function("F", [x_single, u_single, x_ee_delay_single, noises_single], [x_next], ["x", "u", "x_delay", "noise"], ["x_next"])
+    integration_func = cas.Function(
+        "F",
+        [x_single, u_single, x_ee_delay_single, noises_single],
+        [x_next],
+        ["x", "u", "x_delay", "noise"],
+        ["x_next"],
+    )
     integration_func = integration_func.expand()
     return dynamics_func, integration_func
 
@@ -143,7 +154,7 @@ def prepare_socp_delay(
     np.random.seed(seed)
 
     dt = final_time / n_shooting
-    delay = 0.1 # 100ms delay
+    delay = 0.1  # 100ms delay
 
     # Model
     model = StochasticDelayArmModel(
@@ -188,7 +199,9 @@ def prepare_socp_delay(
             x_ee_delay.append(x[0])  # If the delay is greater than the current time, use the initial state
         else:
             x_ee_delay.append(x[i_node - model.nb_frames_delay])
-    x_integrated = multi_threaded_integrator(cas.horzcat(*x[:-1]), cas.horzcat(*u), cas.horzcat(*x_ee_delay), cas.horzcat(*noises_numerical))
+    x_integrated = multi_threaded_integrator(
+        cas.horzcat(*x[:-1]), cas.horzcat(*u), cas.horzcat(*x_ee_delay), cas.horzcat(*noises_numerical)
+    )
     g += [cas.reshape(x_integrated - cas.horzcat(*x[1:]), -1, 1)]
     lbg += [0] * ((model.nb_q * 2 * n_random) * n_shooting)
     ubg += [0] * ((model.nb_q * 2 * n_random) * n_shooting)
@@ -196,7 +209,7 @@ def prepare_socp_delay(
     # Objectives
     for i_node in range(n_shooting):
         j += minimize_stochastic_efforts(model, x[i_node], u[i_node], noises_numerical[i_node]) * dt / 2
-        j += minimize_gains(model, u[i_node]) * dt / 10 # Regularization
+        j += minimize_gains(model, u[i_node]) * dt / 10  # Regularization
     j += reach_target_consistently(model, x[-1], example_type)
 
     # Constraints

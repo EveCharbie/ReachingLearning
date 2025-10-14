@@ -9,6 +9,7 @@ SOCP_DELAY_color = "#F18F01"
 # "#A469F1"
 # "#06b0f0"
 
+
 def hand_position(socp_delay, q):
     hand_pos = get_dm_value(socp_delay["model"].end_effector_position, [q])
     return np.reshape(hand_pos[:2], (2,))
@@ -217,12 +218,12 @@ def plot_hand_trajectories(variable_data, socp_delay, n_simulations, save_path_s
         print(f"Running socp_delay noised simulation {i_simulation}")
         np.random.seed(i_simulation)
         for i_random in range(n_random):
-            x_simulated[i_simulation * n_random + i_random, :n_q, 0] = (
-                variable_data["x_opt"][i_random * n_q: (i_random + 1) * n_q, 0]
-            )
-            x_simulated[i_simulation * n_random + i_random, n_q:, 0] = (
-                variable_data["x_opt"][n_q * n_random + i_random * n_q: n_q * n_random + (i_random + 1) * n_q, 0]
-            )
+            x_simulated[i_simulation * n_random + i_random, :n_q, 0] = variable_data["x_opt"][
+                i_random * n_q : (i_random + 1) * n_q, 0
+            ]
+            x_simulated[i_simulation * n_random + i_random, n_q:, 0] = variable_data["x_opt"][
+                n_q * n_random + i_random * n_q : n_q * n_random + (i_random + 1) * n_q, 0
+            ]
         for i_node in range(n_shooting):
             x_prev = np.zeros((n_q * 2 * n_random))
             for i_random in range(n_random):
@@ -230,16 +231,18 @@ def plot_hand_trajectories(variable_data, socp_delay, n_simulations, save_path_s
                     i_simulation * n_random + i_random, :n_q, i_node
                 ]
                 x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
-                                                                                      i_simulation * n_random + i_random,
-                                                                                      n_q:,
-                                                                                      i_node,
+                    i_simulation * n_random + i_random,
+                    n_q:,
+                    i_node,
                 ]
             u_this_time = variable_data["u_opt"][:, i_node]
             noise_this_time = np.random.normal(0, noise_magnitude, n_noises)
             if i_node < nb_frames_delay:
                 x_ee_delay = np.zeros((n_q * 2 * n_random))
             else:
-                x_ee_delay = x_simulated[i_simulation * n_random : (i_simulation+1) * n_random, :, i_node - nb_frames_delay]
+                x_ee_delay = x_simulated[
+                    i_simulation * n_random : (i_simulation + 1) * n_random, :, i_node - nb_frames_delay
+                ]
             x_next = socp_delay["integration_func"](x_prev, u_this_time, x_ee_delay, noise_this_time)
             for i_random in range(n_random):
                 x_simulated[i_simulation * n_random + i_random, :n_q, i_node + 1] = np.reshape(
@@ -261,22 +264,22 @@ def plot_hand_trajectories(variable_data, socp_delay, n_simulations, save_path_s
         # Final point
         x_prev = np.zeros((n_q * 2 * n_random))
         for i_random in range(n_random):
-            x_prev[i_random * n_q: (i_random + 1) * n_q] = x_simulated[
-                                                           i_simulation * n_random + i_random, :n_q, i_node + 1
-                                                           ]
-            x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q] = x_simulated[
-                                                                                 i_simulation * n_random + i_random,
-                                                                                 n_q:,
-                                                                                 i_node + 1,
-                                                                                 ]
+            x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[
+                i_simulation * n_random + i_random, :n_q, i_node + 1
+            ]
+            x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
+                i_simulation * n_random + i_random,
+                n_q:,
+                i_node + 1,
+            ]
         for i_random in range(n_random):
             hand_pos_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_position(
-                socp_delay, x_prev[i_random * n_q: (i_random + 1) * n_q]
+                socp_delay, x_prev[i_random * n_q : (i_random + 1) * n_q]
             )
             hand_vel_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_velocity(
                 socp_delay,
-                x_prev[i_random * n_q: (i_random + 1) * n_q],
-                x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q],
+                x_prev[i_random * n_q : (i_random + 1) * n_q],
+                x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q],
             )
 
     hand_pos_ref = np.zeros((2, n_shooting + 1))
@@ -352,7 +355,9 @@ def plot_hand_trajectories(variable_data, socp_delay, n_simulations, save_path_s
     axs[2, 1].set_ylabel("Elbow velocity [rad/s]")
     axs[0, 0].axis("equal")
     plt.tight_layout()
-    save_path_fig = save_path_socp_delay.replace(".pkl", "_plot_hand_trajectories.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_socp_delay.replace(".pkl", "_plot_hand_trajectories.png").replace(
+        "/results/", "/figures/"
+    )
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()

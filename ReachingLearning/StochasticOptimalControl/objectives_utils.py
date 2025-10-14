@@ -40,6 +40,7 @@ def minimize_stochastic_efforts(model, x_single, u_single, noise_single) -> cas.
 
     return cas.sum1(cas.sum2(tau_computed**2))
 
+
 def minimize_gains(model, u_single):
     k_fb = u_single[model.nb_muscles : model.nb_muscles + model.nb_q * model.n_references]
     return cas.sum1(k_fb**2)

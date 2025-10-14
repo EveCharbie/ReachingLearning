@@ -92,7 +92,9 @@ class StochasticBasicArmModel(ArmModel):
             q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
             qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
             motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_muscles]
-            sensory_noise_this_time = noise_single[noise_offset + self.nb_muscles : noise_offset + self.nb_muscles + self.n_references]
+            sensory_noise_this_time = noise_single[
+                noise_offset + self.nb_muscles : noise_offset + self.nb_muscles + self.n_references
+            ]
             noise_offset += self.n_noises
 
             # Get the real muscle activations (noised and avoid negative values)

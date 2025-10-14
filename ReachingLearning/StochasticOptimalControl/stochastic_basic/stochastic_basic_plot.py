@@ -216,12 +216,12 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
         print(f"Running socp_basic noised simulation {i_simulation}")
         np.random.seed(i_simulation)
         for i_random in range(n_random):
-            x_simulated[i_simulation * n_random + i_random, :n_q, 0] = (
-                variable_data["x_opt"][i_random * n_q: (i_random + 1) * n_q, 0]
-            )
-            x_simulated[i_simulation * n_random + i_random, n_q:, 0] = (
-                variable_data["x_opt"][n_q * n_random + i_random * n_q: n_q * n_random + (i_random + 1) * n_q, 0]
-            )
+            x_simulated[i_simulation * n_random + i_random, :n_q, 0] = variable_data["x_opt"][
+                i_random * n_q : (i_random + 1) * n_q, 0
+            ]
+            x_simulated[i_simulation * n_random + i_random, n_q:, 0] = variable_data["x_opt"][
+                n_q * n_random + i_random * n_q : n_q * n_random + (i_random + 1) * n_q, 0
+            ]
         for i_node in range(n_shooting):
             x_prev = np.zeros((n_q * 2 * n_random))
             for i_random in range(n_random):
@@ -229,9 +229,9 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
                     i_simulation * n_random + i_random, :n_q, i_node
                 ]
                 x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
-                                                                                      i_simulation * n_random + i_random,
-                                                                                      n_q:,
-                                                                                      i_node,
+                    i_simulation * n_random + i_random,
+                    n_q:,
+                    i_node,
                 ]
             u_this_time = variable_data["u_opt"][:, i_node]
             noise_this_time = np.random.normal(0, noise_magnitude, n_noises)
@@ -256,22 +256,22 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
         # Final point
         x_prev = np.zeros((n_q * 2 * n_random))
         for i_random in range(n_random):
-            x_prev[i_random * n_q: (i_random + 1) * n_q] = x_simulated[
-                                                           i_simulation * n_random + i_random, :n_q, i_node + 1
-                                                           ]
-            x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q] = x_simulated[
-                                                                                 i_simulation * n_random + i_random,
-                                                                                 n_q:,
-                                                                                 i_node + 1,
-                                                                                 ]
+            x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[
+                i_simulation * n_random + i_random, :n_q, i_node + 1
+            ]
+            x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
+                i_simulation * n_random + i_random,
+                n_q:,
+                i_node + 1,
+            ]
         for i_random in range(n_random):
             hand_pos_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_position(
-                socp_basic, x_prev[i_random * n_q: (i_random + 1) * n_q]
+                socp_basic, x_prev[i_random * n_q : (i_random + 1) * n_q]
             )
             hand_vel_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_velocity(
                 socp_basic,
-                x_prev[i_random * n_q: (i_random + 1) * n_q],
-                x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q],
+                x_prev[i_random * n_q : (i_random + 1) * n_q],
+                x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q],
             )
 
     hand_pos_ref = np.zeros((2, n_shooting + 1))
@@ -347,7 +347,9 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
     axs[2, 1].set_ylabel("Elbow velocity [rad/s]")
     axs[0, 0].axis("equal")
     plt.tight_layout()
-    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_hand_trajectories.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_hand_trajectories.png").replace(
+        "/results/", "/figures/"
+    )
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
