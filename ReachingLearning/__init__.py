@@ -17,6 +17,14 @@ from .StochasticOptimalControl.stochastic_basic.stochastic_basic_plot import plo
 from .StochasticOptimalControl.stochastic_basic.stochastic_basic_animate import animate_socp_basic
 from .StochasticOptimalControl.stochastic_basic.stochastic_basic_run import run_socp_basic
 
+# delay stochastic optimal control problem
+from .StochasticOptimalControl.stochastic_delay.stochastic_delay_OCP import prepare_socp_delay
+from .StochasticOptimalControl.stochastic_delay.stochastic_delay_arm_model import StochasticDelayArmModel
+from .StochasticOptimalControl.stochastic_delay.stochastic_delay_save_results import save_socp_delay
+from .StochasticOptimalControl.stochastic_delay.stochastic_delay_plot import plot_socp_delay
+from .StochasticOptimalControl.stochastic_delay.stochastic_delay_animate import animate_socp_delay
+from .StochasticOptimalControl.stochastic_delay.stochastic_delay_run import run_socp_delay
+
 
 # state_estimator
 from .StochasticOptimalControl.state_estimator.geometrical_state_estimate import get_states_from_muscle_lengths

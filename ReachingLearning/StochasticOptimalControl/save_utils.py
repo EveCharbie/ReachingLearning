@@ -54,3 +54,21 @@ def integrate_single_shooting(ocp: dict[str, any], x_opt: np.ndarray, u_opt: np.
             .flatten()
         )
     return x_integrated
+
+
+def integrate_single_shooting_delay(ocp: dict[str, any], x_opt: np.ndarray, u_opt: np.ndarray, x_delay_opt: np.ndarray):
+    n_shooting = ocp["n_shooting"]
+
+    x_integrated = np.zeros((x_opt.shape[0], n_shooting + 1))
+    x_integrated[:, 0] = x_opt[:, 0]
+    for i_node in range(n_shooting):
+        x_integrated[:, i_node + 1] = (
+            ocp["integration_func"](
+                x=x_integrated[:, i_node],
+                u=u_opt[:, i_node],
+                x_delay=x_delay_opt[:, i_node],
+            )["x_next"]
+            .full()
+            .flatten()
+        )
+    return x_integrated

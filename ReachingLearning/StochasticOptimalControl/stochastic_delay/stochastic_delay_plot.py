@@ -1,4 +1,3 @@
-import casadi as cas
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -6,22 +5,23 @@ from ..utils import get_target_position, get_dm_value
 from ..plot_utils import set_columns_suptitles
 
 
-SOCP_BASIC_color = "#AC2594"
+SOCP_DELAY_color = "#F18F01"
+# "#A469F1"
+# "#06b0f0"
 
-
-def hand_position(socp_basic, q):
-    hand_pos = get_dm_value(socp_basic["model"].end_effector_position, [q])
+def hand_position(socp_delay, q):
+    hand_pos = get_dm_value(socp_delay["model"].end_effector_position, [q])
     return np.reshape(hand_pos[:2], (2,))
 
 
-def hand_velocity(socp_basic, q, qdot):
-    hand_velo = get_dm_value(socp_basic["model"].end_effector_velocity, [q, qdot])
+def hand_velocity(socp_delay, q, qdot):
+    hand_velo = get_dm_value(socp_delay["model"].end_effector_velocity, [q, qdot])
     return np.reshape(hand_velo[:2], (2,))
 
 
-def plot_states(variable_data, socp_basic, save_path_socp_basic):
+def plot_states(variable_data, socp_delay, save_path_socp_delay):
 
-    n_shooting = socp_basic["n_shooting"]
+    n_shooting = socp_delay["n_shooting"]
     time_vector = variable_data["time_vector"]
 
     # Set up the plots
@@ -42,29 +42,29 @@ def plot_states(variable_data, socp_basic, save_path_socp_basic):
     axs[1, 1].set_xlim([0, time_vector[-1]])
 
     # Optimization variables
-    for i_random in range(socp_basic["model"].n_random):
-        axs[0, 0].plot(time_vector, variable_data["q_opt"][0, i_random, :], ".", markersize=1, color=SOCP_BASIC_color)
-        axs[0, 1].plot(time_vector, variable_data["q_opt"][1, i_random, :], ".", markersize=1, color=SOCP_BASIC_color)
+    for i_random in range(socp_delay["model"].n_random):
+        axs[0, 0].plot(time_vector, variable_data["q_opt"][0, i_random, :], ".", markersize=1, color=SOCP_DELAY_color)
+        axs[0, 1].plot(time_vector, variable_data["q_opt"][1, i_random, :], ".", markersize=1, color=SOCP_DELAY_color)
         axs[1, 0].plot(
-            time_vector, variable_data["qdot_opt"][0, i_random, :], ".", markersize=1, color=SOCP_BASIC_color
+            time_vector, variable_data["qdot_opt"][0, i_random, :], ".", markersize=1, color=SOCP_DELAY_color
         )
         axs[1, 1].plot(
-            time_vector, variable_data["qdot_opt"][1, i_random, :], ".", markersize=1, color=SOCP_BASIC_color
+            time_vector, variable_data["qdot_opt"][1, i_random, :], ".", markersize=1, color=SOCP_DELAY_color
         )
 
     # Reintegration
-    for i_random in range(socp_basic["model"].n_random):
+    for i_random in range(socp_delay["model"].n_random):
         axs[0, 0].plot(
-            time_vector, variable_data["q_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+            time_vector, variable_data["q_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_DELAY_color
         )
         axs[0, 1].plot(
-            time_vector, variable_data["q_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+            time_vector, variable_data["q_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_DELAY_color
         )
         axs[1, 0].plot(
-            time_vector, variable_data["qdot_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+            time_vector, variable_data["qdot_integrated"][0, i_random, :], "-", linewidth=0.5, color=SOCP_DELAY_color
         )
         axs[1, 1].plot(
-            time_vector, variable_data["qdot_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_BASIC_color
+            time_vector, variable_data["qdot_integrated"][1, i_random, :], "-", linewidth=0.5, color=SOCP_DELAY_color
         )
 
     # Bounds
@@ -99,15 +99,15 @@ def plot_states(variable_data, socp_basic, save_path_socp_basic):
         time_vector, variable_data["ubqdot"][1, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
     )
 
-    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_states.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_socp_delay.replace(".pkl", "_plot_states.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
 
 
-def plot_controls(variable_data, socp_basic, save_path_socp_basic):
+def plot_controls(variable_data, socp_delay, save_path_socp_delay):
 
-    n_shooting = socp_basic["n_shooting"]
+    n_shooting = socp_delay["n_shooting"]
     time_vector = variable_data["time_vector"][:-1]
 
     # Set up the plots
@@ -132,17 +132,17 @@ def plot_controls(variable_data, socp_basic, save_path_socp_basic):
     axs[1, 2].set_xlim([0, time_vector[-1]])
 
     # Optimization variables
-    axs[0, 0].plot(time_vector, variable_data["muscle_opt"][2, :], ".", markersize=1, color=SOCP_BASIC_color)
+    axs[0, 0].plot(time_vector, variable_data["muscle_opt"][2, :], ".", markersize=1, color=SOCP_DELAY_color)
     axs[0, 0].set_title("Deltoid Anterior")
-    axs[0, 1].plot(time_vector, variable_data["muscle_opt"][0, :], ".", markersize=1, color=SOCP_BASIC_color)
+    axs[0, 1].plot(time_vector, variable_data["muscle_opt"][0, :], ".", markersize=1, color=SOCP_DELAY_color)
     axs[0, 1].set_title("Brachialis")
-    axs[0, 2].plot(time_vector, variable_data["muscle_opt"][4, :], ".", markersize=1, color=SOCP_BASIC_color)
+    axs[0, 2].plot(time_vector, variable_data["muscle_opt"][4, :], ".", markersize=1, color=SOCP_DELAY_color)
     axs[0, 2].set_title("Biceps")
-    axs[1, 0].plot(time_vector, variable_data["muscle_opt"][3, :], ".", markersize=1, color=SOCP_BASIC_color)
+    axs[1, 0].plot(time_vector, variable_data["muscle_opt"][3, :], ".", markersize=1, color=SOCP_DELAY_color)
     axs[1, 0].set_title("Deltoid Posterior")
-    axs[1, 1].plot(time_vector, variable_data["muscle_opt"][1, :], ".", markersize=1, color=SOCP_BASIC_color)
+    axs[1, 1].plot(time_vector, variable_data["muscle_opt"][1, :], ".", markersize=1, color=SOCP_DELAY_color)
     axs[1, 1].set_title("Triceps Lateral")
-    axs[1, 2].plot(time_vector, variable_data["muscle_opt"][5, :], ".", markersize=1, color=SOCP_BASIC_color)
+    axs[1, 2].plot(time_vector, variable_data["muscle_opt"][5, :], ".", markersize=1, color=SOCP_DELAY_color)
     axs[1, 2].set_title("Triceps Long")
 
     # Bounds
@@ -167,7 +167,7 @@ def plot_controls(variable_data, socp_basic, save_path_socp_basic):
             )
 
     plt.tight_layout()
-    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_controls.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_socp_delay.replace(".pkl", "_plot_controls.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
@@ -178,19 +178,19 @@ def plot_controls(variable_data, socp_basic, save_path_socp_basic):
     print(f"Max k_fb : {np.max(variable_data['k_fb_opt'])} ({np.argmax(np.min(variable_data['k_fb_opt']))})")
 
 
-def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_socp_basic):
+def plot_hand_trajectories(variable_data, socp_delay, n_simulations, save_path_socp_delay):
 
-    n_shooting = socp_basic["n_shooting"]
-    final_time = socp_basic["final_time"]
-    n_random = socp_basic["model"].n_random
-    n_muscles = socp_basic["model"].nb_muscles
-    q_offset = socp_basic["model"].q_offset
-    n_q = socp_basic["model"].nb_q
-    n_noises = (socp_basic["model"].n_references + socp_basic["model"].nb_muscles) * n_random
+    n_shooting = socp_delay["n_shooting"]
+    final_time = socp_delay["final_time"]
+    n_random = socp_delay["model"].n_random
+    n_muscles = socp_delay["model"].nb_muscles
+    q_offset = socp_delay["model"].q_offset
+    n_q = socp_delay["model"].nb_q
+    n_noises = (socp_delay["model"].n_references + socp_delay["model"].nb_muscles) * n_random
     noise_magnitude = np.hstack(
         (
             np.array(
-                np.array(socp_basic["model"].motor_noise_magnitude)
+                np.array(socp_delay["model"].motor_noise_magnitude)
                 .reshape(
                     -1,
                 )
@@ -198,7 +198,7 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
                 * n_random
             ),
             np.array(
-                np.array(socp_basic["model"].hand_sensory_noise_magnitude)
+                np.array(socp_delay["model"].hand_sensory_noise_magnitude)
                 .reshape(
                     -1,
                 )
@@ -207,13 +207,14 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
             ),
         )
     )
+    nb_frames_delay = socp_delay["model"].nb_frames_delay
 
     # Reintegrate the solution with noise
     x_simulated = np.zeros((n_simulations * n_random, 2 * n_q, n_shooting + 1))
     hand_pos_simulated = np.zeros((n_simulations * n_random, 2, n_shooting + 1))
     hand_vel_simulated = np.zeros((n_simulations * n_random, 2, n_shooting + 1))
     for i_simulation in range(n_simulations):
-        print(f"Running socp_basic noised simulation {i_simulation}")
+        print(f"Running socp_delay noised simulation {i_simulation}")
         np.random.seed(i_simulation)
         for i_random in range(n_random):
             x_simulated[i_simulation * n_random + i_random, :n_q, 0] = (
@@ -235,7 +236,11 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
                 ]
             u_this_time = variable_data["u_opt"][:, i_node]
             noise_this_time = np.random.normal(0, noise_magnitude, n_noises)
-            x_next = socp_basic["integration_func"](x_prev, u_this_time, noise_this_time)
+            if i_node < nb_frames_delay:
+                x_ee_delay = np.zeros((n_q * 2 * n_random))
+            else:
+                x_ee_delay = x_simulated[i_simulation * n_random : (i_simulation+1) * n_random, :, i_node - nb_frames_delay]
+            x_next = socp_delay["integration_func"](x_prev, u_this_time, x_ee_delay, noise_this_time)
             for i_random in range(n_random):
                 x_simulated[i_simulation * n_random + i_random, :n_q, i_node + 1] = np.reshape(
                     x_next[i_random * n_q : (i_random + 1) * n_q, 0], (-1,)
@@ -245,10 +250,10 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
                 )
 
                 hand_pos_simulated[i_simulation * n_random + i_random, :, i_node] = hand_position(
-                    socp_basic, x_prev[i_random * n_q : (i_random + 1) * n_q]
+                    socp_delay, x_prev[i_random * n_q : (i_random + 1) * n_q]
                 )
                 hand_vel_simulated[i_simulation * n_random + i_random, :, i_node] = hand_velocity(
-                    socp_basic,
+                    socp_delay,
                     x_prev[i_random * n_q : (i_random + 1) * n_q],
                     x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q],
                 )
@@ -266,10 +271,10 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
                                                                                  ]
         for i_random in range(n_random):
             hand_pos_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_position(
-                socp_basic, x_prev[i_random * n_q: (i_random + 1) * n_q]
+                socp_delay, x_prev[i_random * n_q: (i_random + 1) * n_q]
             )
             hand_vel_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_velocity(
-                socp_basic,
+                socp_delay,
                 x_prev[i_random * n_q: (i_random + 1) * n_q],
                 x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q],
             )
@@ -280,44 +285,44 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
         hand_pos_ref[:, i_node] = variable_data["ref_fb_opt"][:2, i_node]
         hand_vel_ref[:, i_node] = variable_data["ref_fb_opt"][2:4, i_node]
 
-    hand_initial_position, hand_final_position = get_target_position(socp_basic["model"])
+    hand_initial_position, hand_final_position = get_target_position(socp_delay["model"])
 
     fig, axs = plt.subplots(3, 2)
     for i_simulation in range(n_simulations):
         axs[0, 0].plot(
             hand_pos_simulated[i_simulation, 0, :],
             hand_pos_simulated[i_simulation, 1, :],
-            color=SOCP_BASIC_color,
+            color=SOCP_DELAY_color,
             linewidth=0.5,
         )
         axs[1, 0].plot(
             np.linspace(0, final_time, n_shooting + 1),
             x_simulated[i_simulation, 0, :],
-            color=SOCP_BASIC_color,
+            color=SOCP_DELAY_color,
             linewidth=0.5,
         )
         axs[2, 0].plot(
             np.linspace(0, final_time, n_shooting + 1),
             x_simulated[i_simulation, 1, :],
-            color=SOCP_BASIC_color,
+            color=SOCP_DELAY_color,
             linewidth=0.5,
         )
         axs[0, 1].plot(
             np.linspace(0, final_time, n_shooting + 1),
             np.linalg.norm(hand_vel_simulated[i_simulation, :, :], axis=0),
-            color=SOCP_BASIC_color,
+            color=SOCP_DELAY_color,
             linewidth=0.5,
         )
         axs[1, 1].plot(
             np.linspace(0, final_time, n_shooting + 1),
             x_simulated[i_simulation, 2, :],
-            color=SOCP_BASIC_color,
+            color=SOCP_DELAY_color,
             linewidth=0.5,
         )
         axs[2, 1].plot(
             np.linspace(0, final_time, n_shooting + 1),
             x_simulated[i_simulation, 3, :],
-            color=SOCP_BASIC_color,
+            color=SOCP_DELAY_color,
             linewidth=0.5,
         )
 
@@ -347,22 +352,22 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_s
     axs[2, 1].set_ylabel("Elbow velocity [rad/s]")
     axs[0, 0].axis("equal")
     plt.tight_layout()
-    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_hand_trajectories.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_socp_delay.replace(".pkl", "_plot_hand_trajectories.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
 
 
-def plot_socp_basic(
+def plot_socp_delay(
     variable_data: dict[str, np.ndarray],
-    socp_basic: dict[str, any],
+    socp_delay: dict[str, any],
     motor_noise_std: float,
     force_field_magnitude: float,
-    save_path_socp_basic: str,
+    save_path_socp_delay: str,
     n_simulations: int = 100,
 ):
 
     # TODO: see if force_field_magnitude is implemented correctly
-    plot_states(variable_data, socp_basic, save_path_socp_basic)
-    plot_controls(variable_data, socp_basic, save_path_socp_basic)
-    plot_hand_trajectories(variable_data, socp_basic, n_simulations, save_path_socp_basic)
+    plot_states(variable_data, socp_delay, save_path_socp_delay)
+    plot_controls(variable_data, socp_delay, save_path_socp_delay)
+    plot_hand_trajectories(variable_data, socp_delay, n_simulations, save_path_socp_delay)

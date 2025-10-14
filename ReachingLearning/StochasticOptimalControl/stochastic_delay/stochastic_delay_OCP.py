@@ -1,15 +1,23 @@
+"""
+Stretch reflex has a delay of about 20ms (https://doi.org/10.1016/j.cub.2020.07.092) -> q-feedback delayed by 20ms
+Reaction time after a visual stimuli (time between the stimuli and first EMG activation) can be smaller than 100ms (https://doi.org/10.1111/j.1460-9568.2010.07380.x) -> ee-feedback delayed by 100ms
+But here, I will only consider visual delay and visual feedback
+"""
 import casadi as cas
 import numpy as np
 
 from ..utils import ExampleType
 from ..constraints_utils import mean_q_start_on_target, mean_q_reach_target, ref_equals_mean_ref
 from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts, minimize_gains
-from .stochastic_basic_arm_model import StochasticBasicArmModel
+from .stochastic_delay_arm_model import StochasticDelayArmModel
+from ..stochastic_basic.stochastic_basic_OCP import declare_noises
+
 
 
 def declare_variables(
     n_shooting: int,
     n_random: int,
+    nb_frames_delay: int,
 ) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
     """
     Declare all variables (states and controls) and their initial guess
@@ -70,9 +78,15 @@ def declare_variables(
             w0 += [1e-6] * n_muscles
             # Feedback gains
             k_fb_i = cas.MX.sym(f"k_fb_{i_node}", n_q * n_references)
-            lbw += [-10] * (n_q * n_references)
-            ubw += [10] * (n_q * n_references)
-            w0 += [0.1] * (n_q * n_references)
+            if i_node < nb_frames_delay:
+                # No feedback if the delay is greater than the current time (at the beginning of the trial)
+                lbw += [0.0] * (n_q * n_references)
+                ubw += [0.0] * (n_q * n_references)
+                w0 += [0.0] * (n_q * n_references)
+            else:
+                lbw += [-10] * (n_q * n_references)
+                ubw += [10] * (n_q * n_references)
+                w0 += [0.1] * (n_q * n_references)
             # Feedback reference
             ref_fb_i = cas.MX.sym(f"ref_fb_{i_node}", n_references)
             lbw += [-1] * n_references
@@ -83,36 +97,7 @@ def declare_variables(
             w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
     return x, u, w, lbw, ubw, w0
 
-
-def declare_noises(n_shooting, n_random, motor_noise_magnitude, sensory_noise_magnitude):
-    """
-    Motor noise: 6 muscles
-    Sensory noise: 2 hand position + 2 hand velocity
-    """
-    n_muscles = 6
-    n_references = 4
-
-    noises_numerical = []
-    for i_shooting in range(n_shooting):
-        this_motor_noise_vector = np.zeros((n_muscles * n_random,))
-        this_sensory_noise_vector = np.zeros((n_references * n_random,))
-        for i_random in range(n_random):
-            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = np.random.normal(
-                loc=np.zeros((n_muscles,)),
-                scale=np.reshape(np.array(motor_noise_magnitude), (n_muscles,)),
-                size=n_muscles,
-            )
-            this_sensory_noise_vector[n_references * i_random : n_references * (i_random + 1)] = np.random.normal(
-                loc=np.zeros((n_references,)),
-                scale=np.reshape(np.array(sensory_noise_magnitude), (n_references,)),
-                size=n_references,
-            )
-        noises_numerical += [cas.vertcat(this_motor_noise_vector, this_sensory_noise_vector)]
-    noises_single = cas.MX.sym("noises_single", (n_muscles + n_references) * n_random)
-    return noises_numerical, noises_single
-
-
-def declare_dynamics_equation(model, x_single, u_single, noises_single, dt):
+def declare_dynamics_equation(model, x_single, u_single, x_ee_delay_single, noises_single, dt):
     """
     Formulate discrete time dynamics
     Fixed step Runge-Kutta 4 integrator
@@ -122,26 +107,26 @@ def declare_dynamics_equation(model, x_single, u_single, noises_single, dt):
     h = dt / n_steps
 
     # Dynamics
-    xdot = model.dynamics(x_single, u_single, noises_single)
+    xdot = model.dynamics(x_single, u_single, x_ee_delay_single, noises_single)
     dynamics_func = cas.Function(
-        f"dynamics", [x_single, u_single, noises_single], [xdot], ["x", "u", "noise"], ["xdot"]
+        f"dynamics", [x_single, u_single, x_ee_delay_single, noises_single], [xdot], ["x", "u", "x_delay", "noise"], ["xdot"]
     )
     dynamics_func = dynamics_func.expand()
 
     # Integrator
     x_next = x_single[:]
     for j in range(n_steps):
-        k1 = dynamics_func(x_next, u_single, noises_single)
-        k2 = dynamics_func(x_next + h / 2 * k1, u_single, noises_single)
-        k3 = dynamics_func(x_next + h / 2 * k2, u_single, noises_single)
-        k4 = dynamics_func(x_next + h * k3, u_single, noises_single)
+        k1 = dynamics_func(x_next, u_single, x_ee_delay_single, noises_single)
+        k2 = dynamics_func(x_next + h / 2 * k1, u_single, x_ee_delay_single, noises_single)
+        k3 = dynamics_func(x_next + h / 2 * k2, u_single, x_ee_delay_single, noises_single)
+        k4 = dynamics_func(x_next + h * k3, u_single, x_ee_delay_single, noises_single)
         x_next += h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
-    integration_func = cas.Function("F", [x_single, u_single, noises_single], [x_next], ["x", "u", "noise"], ["x_next"])
+    integration_func = cas.Function("F", [x_single, u_single, x_ee_delay_single, noises_single], [x_next], ["x", "u", "x_delay", "noise"], ["x_next"])
     integration_func = integration_func.expand()
     return dynamics_func, integration_func
 
 
-def prepare_socp_basic(
+def prepare_socp_delay(
     final_time: float,
     n_shooting: int,
     motor_noise_std: float,
@@ -158,19 +143,21 @@ def prepare_socp_basic(
     np.random.seed(seed)
 
     dt = final_time / n_shooting
+    delay = 0.1 # 100ms delay
 
     # Model
-    model = StochasticBasicArmModel(
+    model = StochasticDelayArmModel(
         motor_noise_std=motor_noise_std,
         wPq_std=wPq_std,
         wPqdot_std=wPqdot_std,
         dt=dt,
         force_field_magnitude=force_field_magnitude,
         n_random=n_random,
+        delay=delay,
     )
 
     # Variables
-    x, u, w, lbw, ubw, w0 = declare_variables(n_shooting, n_random)
+    x, u, w, lbw, ubw, w0 = declare_variables(n_shooting, n_random, model.nb_frames_delay)
     noises_numerical, noises_single = declare_noises(
         n_shooting, n_random, model.motor_noise_magnitude, model.hand_sensory_noise_magnitude
     )
@@ -183,7 +170,7 @@ def prepare_socp_basic(
 
     # Dynamics
     dynamics_func, integration_func = declare_dynamics_equation(
-        model, x_single=x[0], u_single=u[0], noises_single=noises_single, dt=dt
+        model, x_single=x[0], u_single=u[0], x_ee_delay_single=x[1], noises_single=noises_single, dt=dt
     )
 
     multi_threaded_integrator = integration_func.map(n_shooting, "thread", n_threads)
@@ -195,7 +182,13 @@ def prepare_socp_basic(
     ubg += ubg_target
 
     # Multi-threaded continuity constraint
-    x_integrated = multi_threaded_integrator(cas.horzcat(*x[:-1]), cas.horzcat(*u), cas.horzcat(*noises_numerical))
+    x_ee_delay = []
+    for i_node in range(n_shooting):
+        if i_node - model.nb_frames_delay < 0:
+            x_ee_delay.append(x[0])  # If the delay is greater than the current time, use the initial state
+        else:
+            x_ee_delay.append(x[i_node - model.nb_frames_delay])
+    x_integrated = multi_threaded_integrator(cas.horzcat(*x[:-1]), cas.horzcat(*u), cas.horzcat(*x_ee_delay), cas.horzcat(*noises_numerical))
     g += [cas.reshape(x_integrated - cas.horzcat(*x[1:]), -1, 1)]
     lbg += [0] * ((model.nb_q * 2 * n_random) * n_shooting)
     ubg += [0] * ((model.nb_q * 2 * n_random) * n_shooting)
