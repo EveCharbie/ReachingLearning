@@ -3,7 +3,7 @@ import numpy as np
 
 from ..utils import ExampleType
 from ..constraints_utils import mean_q_start_on_target, mean_q_reach_target, ref_equals_mean_ref
-from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts
+from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts, minimize_gains
 from .stochastic_basic_arm_model import StochasticBasicArmModel
 
 
@@ -203,6 +203,7 @@ def prepare_socp_basic(
     # Objectives
     for i_node in range(n_shooting):
         j += minimize_stochastic_efforts(model, x[i_node], u[i_node], noises_numerical[i_node]) * dt / 2
+        j += minimize_gains(model, u[i_node]) * dt / 10 # Regularization
     j += reach_target_consistently(model, x[-1], example_type)
 
     # Constraints

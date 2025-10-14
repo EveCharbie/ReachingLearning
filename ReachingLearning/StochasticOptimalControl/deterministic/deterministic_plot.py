@@ -261,7 +261,7 @@ def plot_hand_trajectories(variable_data, ocp, n_simulations, motor_noise_std, s
     axs[2, 1].set_ylabel("Elbow velocity [rad/s]")
     axs[0, 0].axis("equal")
     plt.tight_layout()
-    save_path_fig = save_path_ocp.replace(".pkl", "_plot_hand_trajectories.png")
+    save_path_fig = save_path_ocp.replace(".pkl", "_plot_hand_trajectories.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()

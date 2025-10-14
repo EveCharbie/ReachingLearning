@@ -215,57 +215,70 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, motor_noise
     for i_simulation in range(n_simulations):
         print(f"Running socp_basic noised simulation {i_simulation}")
         np.random.seed(i_simulation)
-        x_simulated[i_simulation * n_random : (i_simulation + 1) * n_random, :, 0] = (
-            variable_data["x_opt"][:, 0].reshape(n_random, n_q * 2, order="F").copy()
-        )
+        for i_random in range(n_random):
+            x_simulated[i_simulation * n_random + i_random, :n_q, 0] = (
+                variable_data["x_opt"][i_random * n_q: (i_random + 1) * n_q, 0]
+            )
+            x_simulated[i_simulation * n_random + i_random, n_q:, 0] = (
+                variable_data["x_opt"][n_q * n_random + i_random * n_q: n_q * n_random + (i_random + 1) * n_q, 0]
+            )
         for i_node in range(n_shooting):
             x_prev = np.zeros((n_q * 2 * n_random))
             for i_random in range(n_random):
                 x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[
-                    i_simulation * n_random + i_random * n_q : i_simulation * n_random * (i_random + 1) * n_q, :, i_node
+                    i_simulation * n_random + i_random, :n_q, i_node
                 ]
                 x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
-                    q_offset
-                    + i_simulation * n_random
-                    + i_random * n_q : q_offset
-                    + i_simulation * n_random(i_random + 1) * n_q,
-                    :,
-                    i_node,
+                                                                                      i_simulation * n_random + i_random,
+                                                                                      n_q:,
+                                                                                      i_node,
                 ]
             u_this_time = variable_data["u_opt"][:, i_node]
             noise_this_time = np.random.normal(0, noise_magnitude, n_noises)
             x_next = socp_basic["integration_func"](x_prev, u_this_time, noise_this_time)
-            x_simulated[i_simulation * n_random : (i_simulation + 1) * n_random, :, i_node + 1] = np.reshape(
-                x_next[:, 0], (-1,)
-            )
-
             for i_random in range(n_random):
+                x_simulated[i_simulation * n_random + i_random, :n_q, i_node + 1] = np.reshape(
+                    x_next[i_random * n_q : (i_random + 1) * n_q, 0], (-1,)
+                )
+                x_simulated[i_simulation * n_random + i_random, n_q:, i_node + 1] = np.reshape(
+                    x_next[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q, 0], (-1,)
+                )
+
                 hand_pos_simulated[i_simulation * n_random + i_random, :, i_node] = hand_position(
-                    socp_basic, x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0]
+                    socp_basic, x_prev[i_random * n_q : (i_random + 1) * n_q]
                 )
                 hand_vel_simulated[i_simulation * n_random + i_random, :, i_node] = hand_velocity(
                     socp_basic,
-                    x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0],
-                    x_prev[i_random * 2 * n_q + n_q : i_random * 2 * n_q + 2 * n_q, 0],
+                    x_prev[i_random * n_q : (i_random + 1) * n_q],
+                    x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q],
                 )
 
-        x_prev = x_simulated[(i_simulation + 1) * n_random : (i_simulation + 2) * n_random, :, i_node + 1]
+        # Final point
+        x_prev = np.zeros((n_q * 2 * n_random))
         for i_random in range(n_random):
-            hand_pos_simulated[(i_simulation + 1) * n_random + i_random, :, i_node] = hand_position(
-                socp_basic,
-                x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0],
+            x_prev[i_random * n_q: (i_random + 1) * n_q] = x_simulated[
+                                                           i_simulation * n_random + i_random, :n_q, i_node + 1
+                                                           ]
+            x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q] = x_simulated[
+                                                                                 i_simulation * n_random + i_random,
+                                                                                 n_q:,
+                                                                                 i_node + 1,
+                                                                                 ]
+        for i_random in range(n_random):
+            hand_pos_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_position(
+                socp_basic, x_prev[i_random * n_q: (i_random + 1) * n_q]
             )
-            hand_vel_simulated[(i_simulation + 1) * n_random + i_random, :, i_node] = hand_velocity(
+            hand_vel_simulated[i_simulation * n_random + i_random, :, i_node + 1] = hand_velocity(
                 socp_basic,
-                x_prev[i_random * 2 * n_q : i_random * 2 * n_q + n_q, 0],
-                x_prev[i_random * 2 * n_q + n_q : i_random * 2 * n_q + 2 * n_q, 0],
+                x_prev[i_random * n_q: (i_random + 1) * n_q],
+                x_prev[q_offset + i_random * n_q: q_offset + (i_random + 1) * n_q],
             )
 
     hand_pos_ref = np.zeros((2, n_shooting + 1))
     hand_vel_ref = np.zeros((2, n_shooting + 1))
-    for i_node in range(n_shooting + 1):
-        hand_pos_ref[:, i_node] = variable_data["ref_opt"][:2, i_node]
-        hand_vel_ref[:, i_node] = variable_data["ref_opt"][2:4, i_node]
+    for i_node in range(n_shooting):
+        hand_pos_ref[:, i_node] = variable_data["ref_fb_opt"][:2, i_node]
+        hand_vel_ref[:, i_node] = variable_data["ref_fb_opt"][2:4, i_node]
 
     hand_initial_position, hand_final_position = get_target_position(socp_basic["model"])
 
@@ -297,42 +310,44 @@ def plot_hand_trajectories(variable_data, socp_basic, n_simulations, motor_noise
         )
         axs[1, 1].plot(
             np.linspace(0, final_time, n_shooting + 1),
-            qdot_simulated[i_simulation, 0, :],
+            x_simulated[i_simulation, 2, :],
             color=SOCP_BASIC_color,
             linewidth=0.5,
         )
         axs[2, 1].plot(
             np.linspace(0, final_time, n_shooting + 1),
-            qdot_simulated[i_simulation, 1, :],
+            x_simulated[i_simulation, 3, :],
             color=SOCP_BASIC_color,
             linewidth=0.5,
         )
 
+    mean_q = np.mean(variable_data["q_opt"], axis=1)
+    mean_qdot = np.mean(variable_data["q_opt"], axis=1)
     axs[0, 0].plot(hand_pos_ref[0, :], hand_pos_ref[1, :], color="k")
     axs[0, 0].plot(hand_initial_position[0], hand_initial_position[1], color="tab:green", marker="o", markersize=1)
     axs[0, 0].plot(hand_final_position[0], hand_final_position[1], color="tab:red", marker="o", markersize=1)
     axs[0, 0].set_xlabel("X [m]")
     axs[0, 0].set_ylabel("Y [m]")
     axs[0, 0].set_title("Hand position simulated")
-    axs[1, 0].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["q_opt"][0, :], color="k")
+    axs[1, 0].plot(np.linspace(0, final_time, n_shooting + 1), mean_q[0, :], color="k")
     axs[1, 0].set_xlabel("Time [s]")
     axs[1, 0].set_ylabel("Shoulder angle [rad]")
-    axs[2, 0].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["q_opt"][1, :], color="k")
+    axs[2, 0].plot(np.linspace(0, final_time, n_shooting + 1), mean_q[1, :], color="k")
     axs[2, 0].set_xlabel("Time [s]")
     axs[2, 0].set_ylabel("Elbow angle [rad]")
     axs[0, 1].plot(np.linspace(0, final_time, n_shooting + 1), np.linalg.norm(hand_vel_ref, axis=0), color="k")
     axs[0, 1].set_xlabel("Time [s]")
     axs[0, 1].set_ylabel("Hand velocity [m/s]")
     axs[0, 1].set_title("Hand velocity simulated")
-    axs[1, 1].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["qdot_opt"][0, :], color="k")
+    axs[1, 1].plot(np.linspace(0, final_time, n_shooting + 1), mean_qdot[0, :], color="k")
     axs[1, 1].set_xlabel("Time [s]")
     axs[1, 1].set_ylabel("Shoulder velocity [rad/s]")
-    axs[2, 1].plot(np.linspace(0, final_time, n_shooting + 1), variable_data["qdot_opt"][1, :], color="k")
+    axs[2, 1].plot(np.linspace(0, final_time, n_shooting + 1), mean_qdot[1, :], color="k")
     axs[2, 1].set_xlabel("Time [s]")
     axs[2, 1].set_ylabel("Elbow velocity [rad/s]")
     axs[0, 0].axis("equal")
     plt.tight_layout()
-    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_hand_trajectories.png")
+    save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_hand_trajectories.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
