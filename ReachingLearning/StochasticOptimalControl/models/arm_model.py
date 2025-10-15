@@ -151,7 +151,9 @@ class ArmModel:
         return muscle_lengths
 
     def forward_dynamics(self, q: cas.MX, qdot: cas.MX, tau: cas.MX) -> cas.MX:
-        return self.biorbd_model.ForwardDynamics(q, qdot, tau).to_mx()
+        q_biorbd = biorbd.GeneralizedCoordinates(q)
+        qdot_biorbd = biorbd.GeneralizedVelocity(qdot)
+        return self.biorbd_model.ForwardDynamics(q_biorbd, qdot_biorbd, tau).to_mx()
 
     def force_field(self, q, force_field_magnitude):
         """

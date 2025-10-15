@@ -74,7 +74,7 @@ def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
 
 def solve(
     ocp: dict[str, any],
-    max_iter: int = 1000,
+    max_iter: int = 10000,
     tol: float = 1e-6,
     hessian_approximation: str = "exact",  # or "limited-memory",
     output_file: str = None,
@@ -98,11 +98,12 @@ def solve(
         "ipopt.linear_solver": "ma97",
         "ipopt.hessian_approximation": hessian_approximation,
         "ipopt.output_file": output_file,
+        "expand": True,
     }
 
     # Create an NLP solver
-    prob = {"f": j, "x": w, "g": g}
-    solver = cas.nlpsol("solver", "ipopt", prob, opts)
+    nlp = {"f": j, "x": w, "g": g}
+    solver = cas.nlpsol("solver", "ipopt", nlp, opts)
 
     # Solve the NLP
     sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)

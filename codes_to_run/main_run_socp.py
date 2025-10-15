@@ -20,7 +20,7 @@ example_type = ExampleType.CIRCLE
 force_field_magnitude = 0
 
 
-n_random = 5
+n_random = 15
 n_threads = 12
 n_simulations = 30
 seed = 0
@@ -31,7 +31,7 @@ final_time = 0.8
 n_shooting = int(final_time / dt)
 tol = 1e-6
 
-motor_noise_std = 0.01
+motor_noise_std = 0.005
 wPq_std = 3e-4
 wPqdot_std = 0.0024
 
@@ -72,20 +72,20 @@ run_socp_basic(
     ANIMATE_FLAG=ANIMATE_FLAG,
 )
 
-run_socp_delay(
-    final_time=final_time,
-    n_shooting=n_shooting,
-    motor_noise_std=motor_noise_std,
-    wPq_std=wPq_std,
-    wPqdot_std=wPqdot_std,
-    force_field_magnitude=force_field_magnitude,
-    example_type=example_type,
-    n_random=n_random,
-    seed=seed,
-    n_threads=n_threads,
-    tol=tol,
-    n_simulations=n_simulations,
-    RUN_SOCP_BASIC=RUN_SOCP_BASIC,
-    PLOT_FLAG=PLOT_FLAG,
-    ANIMATE_FLAG=ANIMATE_FLAG,
-)
+# run_socp_delay(
+#     final_time=final_time,
+#     n_shooting=n_shooting,
+#     motor_noise_std=motor_noise_std,
+#     wPq_std=wPq_std,
+#     wPqdot_std=wPqdot_std,
+#     force_field_magnitude=force_field_magnitude,
+#     example_type=example_type,
+#     n_random=n_random,
+#     seed=seed,
+#     n_threads=n_threads,
+#     tol=tol,
+#     n_simulations=n_simulations,
+#     RUN_SOCP_BASIC=RUN_SOCP_BASIC,
+#     PLOT_FLAG=PLOT_FLAG,
+#     ANIMATE_FLAG=ANIMATE_FLAG,
+# )

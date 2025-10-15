@@ -2,7 +2,7 @@ import casadi as cas
 import numpy as np
 
 from ..utils import ExampleType
-from ..constraints_utils import mean_q_start_on_target, mean_q_reach_target, ref_equals_mean_ref
+from ..constraints_utils import mean_start_on_target, mean_reach_target, ref_equals_mean_ref
 from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts, minimize_gains
 from .stochastic_basic_arm_model import StochasticBasicArmModel
 
@@ -189,7 +189,7 @@ def prepare_socp_basic(
     multi_threaded_integrator = integration_func.map(n_shooting, "thread", n_threads)
 
     # Initial constraint
-    g_target, lbg_target, ubg_target = mean_q_start_on_target(model, x[0])
+    g_target, lbg_target, ubg_target = mean_start_on_target(model, x[0])
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
@@ -213,7 +213,7 @@ def prepare_socp_basic(
         ubg += [0] * model.n_references
 
     # Terminal constraint
-    g_target, lbg_target, ubg_target = mean_q_reach_target(model, x[-1], example_type)
+    g_target, lbg_target, ubg_target = mean_reach_target(model, x[-1], example_type)
     g += g_target
     lbg += lbg_target
     ubg += ubg_target

@@ -2,7 +2,7 @@ import casadi as cas
 import numpy as np
 
 from .utils import ExampleType
-from .penalty_utils import get_end_effector_for_all_random
+from .penalty_utils import get_end_effector_for_all_random, get_end_effector_position_for_all_random
 
 
 TARGET_START = np.array([0.00000000, 0.27420000])
@@ -21,13 +21,14 @@ def start_on_target(model, x_single: cas.MX) -> tuple[list[cas.MX], list[float],
     return g, lbg, ubg
 
 
-def mean_q_start_on_target(model, x_single: cas.MX) -> tuple[list[cas.MX], list[float], list[float]]:
+def mean_start_on_target(model, x_single: cas.MX) -> tuple[list[cas.MX], list[float], list[float]]:
     """
     Constraint to impose that the mean trajectory reaches the target at the end of the movement
     """
-    q_mean = model.get_mean_q(x_single)
-    ee_pos = model.end_effector_position(q_mean)[:2]
-    g = [ee_pos - TARGET_START]
+    nb_random = model.n_random
+    ee_pos = get_end_effector_position_for_all_random(model, x_single)
+    ee_pos_mean = cas.sum2(ee_pos) / nb_random
+    g = [ee_pos_mean - TARGET_START]
     lbg = [0, 0]
     ubg = [0, 0]
     return g, lbg, ubg
@@ -53,20 +54,21 @@ def reach_target(model, x_single: cas.MX, example_type: ExampleType) -> tuple[li
     return g, lbg, ubg
 
 
-def mean_q_reach_target(
+def mean_reach_target(
     model, x_single: cas.MX, example_type: ExampleType
 ) -> tuple[list[cas.MX], list[float], list[float]]:
     """
     Constraint to impose that the mean trajectory reaches the target at the end of the movement
     """
-    q_mean = model.get_mean_q(x_single)
-    ee_pos = model.end_effector_position(q_mean)[:2]
+    nb_random = model.n_random
+    ee_pos = get_end_effector_position_for_all_random(model, x_single)
+    ee_pos_mean = cas.sum2(ee_pos) / nb_random
     if example_type == ExampleType.BAR:
-        g = [ee_pos[1] - TARGET_END[1]]
+        g = [ee_pos_mean[1] - TARGET_END[1]]
         lbg = [0]
         ubg = [0]
     elif example_type == ExampleType.CIRCLE:
-        g = [ee_pos - TARGET_END]
+        g = [ee_pos_mean - TARGET_END]
         lbg = [0, 0]
         ubg = [0, 0]
     else:
