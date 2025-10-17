@@ -2,7 +2,7 @@ import casadi as cas
 import numpy as np
 
 from .utils import ExampleType
-from .penalty_utils import get_end_effector_for_all_random, get_end_effector_position_for_all_random
+from .penalty_utils import get_end_effector_for_all_random, get_end_effector_position_for_all_random, get_end_effector_velocity_for_all_random
 
 
 TARGET_START = np.array([0.00000000, 0.27420000])
@@ -76,6 +76,14 @@ def mean_reach_target(
 
     return g, lbg, ubg
 
+def mean_end_effector_velocity(model, x_single: cas.MX) -> list[cas.MX]:
+    """
+    Constraint to impose that the mean hand velocity is null at the end of the movement
+    """
+    nb_random = model.n_random
+    ee_velo = get_end_effector_velocity_for_all_random(model, x_single)
+    ee_pos_mean = cas.sum2(ee_velo) / nb_random
+    return [ee_pos_mean]
 
 def ref_equals_mean_ref(model, x_single, u_single) -> list[cas.MX]:
     """

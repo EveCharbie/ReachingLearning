@@ -2,7 +2,14 @@ import casadi as cas
 import numpy as np
 
 from ..utils import ExampleType
-from ..constraints_utils import mean_start_on_target, mean_reach_target, ref_equals_mean_ref
+from ..constraints_utils import (
+    mean_start_on_target,
+    mean_reach_target,
+    ref_equals_mean_ref,
+    mean_end_effector_velocity,
+    TARGET_START,
+    TARGET_END,
+)
 from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts, minimize_gains
 from .stochastic_basic_arm_model import StochasticBasicArmModel
 
@@ -54,8 +61,8 @@ def declare_variables(
         lbw += [0, 0] * n_random
         ubw += [np.pi / 2, 7 / 8 * np.pi] * n_random
         w0 += [joint_angles_init[0, i_node], joint_angles_init[1, i_node]] * n_random
-        # qdot (no velocity at beginning and end of the movement)
-        if i_node == 0 or i_node == n_shooting:
+        # qdot (no velocity at beginning of the movement)
+        if i_node == 0:
             lbw += [0, 0] * n_random
             ubw += [0, 0] * n_random
         else:
@@ -77,7 +84,7 @@ def declare_variables(
             ref_fb_i = cas.MX.sym(f"ref_fb_{i_node}", n_references)
             lbw += [-1] * n_references
             ubw += [1] * n_references
-            w0 += [0, 0, 0, 0]
+            w0 += [ref_trajectory_init[:, i_node].flatten().tolist()]
 
             u += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
             w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
