@@ -101,3 +101,11 @@ def ref_equals_mean_ref(model, x_single, u_single) -> list[cas.MX]:
     ee_vel_mean = cas.sum2(ee_vel) / nb_random
     g = [ref_fb - cas.vertcat(ee_pos_mean, ee_vel_mean)]
     return g
+
+def residual_tau_equals_zero(model, u_single) -> list[cas.MX]:
+    """
+    Constraint to impose that the residual torque are null at convergence
+    """
+    offset = model.nb_muscles + model.nb_q * model.n_references + model.n_references
+    tau = u_single[offset: offset + model.nb_q]
+    return [tau]

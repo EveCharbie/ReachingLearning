@@ -7,6 +7,7 @@ from ..constraints_utils import (
     mean_reach_target,
     ref_equals_mean_ref,
     mean_end_effector_velocity,
+    residual_tau_equals_zero,
     TARGET_START,
     TARGET_END,
 )
@@ -25,12 +26,14 @@ def declare_variables(
         - muscle activations: all 1e-6
         - feedback gains: all 0.1
         - feedback_reference: hand position at initial guess
+        - residual tau: all 0
     and bounds
         - q: shoulder in [0, np.pi/2], elbow in [0, 7/8 * np.pi]
         - qdot: shoulder and elbow in [-10*np.pi, 10*np.pi]
         - muscle activations: all in [1e-6, 1]
         - feedback gains: all in [-10, 10]
         - feedback_reference: all in [-1, 1]
+        - residual tau: all in [-50, 50]
     """
     n_muscles = 6
     n_q = 2
@@ -45,6 +48,10 @@ def declare_variables(
     joint_angles_init = np.zeros((2, n_shooting + 1))
     joint_angles_init[0, :] = np.linspace(shoulder_pos_initial, shoulder_pos_final, n_shooting + 1)  # Shoulder
     joint_angles_init[1, :] = np.linspace(elbow_pos_initial, elbow_pos_final, n_shooting + 1)  # Elbow
+
+    ref_trajectory_init = np.zeros((4, n_shooting + 1))
+    ref_trajectory_init[0, :] = np.linspace(TARGET_START[0], TARGET_END[0], n_shooting + 1)  # Hand X position
+    ref_trajectory_init[1, :] = np.linspace(TARGET_START[1], TARGET_END[1], n_shooting + 1)  # Hand Y position
 
     x = []
     u = []
@@ -85,9 +92,14 @@ def declare_variables(
             lbw += [-1] * n_references
             ubw += [1] * n_references
             w0 += [ref_trajectory_init[:, i_node].flatten().tolist()]
+            # Residual tau
+            tau_i = cas.MX.sym(f"tau_{i_node}", n_q)
+            lbw += [-50] * n_q
+            ubw += [50] * n_q
+            w0 += [0, 0]
 
-            u += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
-            w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i)]
+            u += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i, tau_i)]
+            w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i, tau_i)]
     return x, u, w, lbw, ubw, w0
 
 
@@ -174,6 +186,7 @@ def prepare_socp_basic(
         dt=dt,
         force_field_magnitude=force_field_magnitude,
         n_random=n_random,
+        n_shooting=n_shooting,
     )
 
     # Variables
@@ -218,12 +231,21 @@ def prepare_socp_basic(
         g += ref_equals_mean_ref(model, x[i_node], u[i_node])
         lbg += [0] * model.n_references
         ubg += [0] * model.n_references
+        # Null torque constraint
+        g += residual_tau_equals_zero(model, u[i_node])
+        lbg += [0] * model.nb_q
+        ubg += [0] * model.nb_q
+        g_names += [f"residual_tau_equals_zero"] * model.nb_q
 
     # Terminal constraint
     g_target, lbg_target, ubg_target = mean_reach_target(model, x[-1], example_type)
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
+    g_target = mean_end_effector_velocity(model, x[-1])
+    g += g_target
+    lbg += [0, 0]
+    ubg += [0, 0]
 
     ocp = {
         "model": model,
