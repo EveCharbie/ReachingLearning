@@ -18,6 +18,37 @@ def hand_velocity(socp_basic, q, qdot):
     hand_velo = get_dm_value(socp_basic["model"].end_effector_velocity, [q, qdot])
     return np.reshape(hand_velo[:2], (2,))
 
+def plot_state_bounds(axs, time_vector, variable_data, n_shooting):
+    axs[0, 0].fill_between(
+        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, 0, :], color="lightgrey"
+    )
+    axs[0, 0].fill_between(
+        time_vector, variable_data["ubq"][0, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
+    )
+    axs[0, 1].fill_between(
+        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, 0, :], color="lightgrey"
+    )
+    axs[0, 1].fill_between(
+        time_vector, variable_data["ubq"][1, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
+    )
+    axs[1, 0].fill_between(
+        time_vector,
+        np.ones((n_shooting + 1,)) * -100,
+        variable_data["lbqdot"][0, 0, :],
+        color="lightgrey",
+    )
+    axs[1, 0].fill_between(
+        time_vector, variable_data["ubqdot"][0, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
+    )
+    axs[1, 1].fill_between(
+        time_vector,
+        np.ones((n_shooting + 1,)) * -100,
+        variable_data["lbqdot"][1, 0, :],
+        color="lightgrey",
+    )
+    axs[1, 1].fill_between(
+        time_vector, variable_data["ubqdot"][1, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
+    )
 
 def plot_states(variable_data, socp_basic, save_path_socp_basic):
 
@@ -68,42 +99,28 @@ def plot_states(variable_data, socp_basic, save_path_socp_basic):
         )
 
     # Bounds
-    axs[0, 0].fill_between(
-        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, 0, :], color="lightgrey"
-    )
-    axs[0, 0].fill_between(
-        time_vector, variable_data["ubq"][0, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
-    )
-    axs[0, 1].fill_between(
-        time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][1, 0, :], color="lightgrey"
-    )
-    axs[0, 1].fill_between(
-        time_vector, variable_data["ubq"][1, 0, :], np.ones((n_shooting + 1,)) * 10, color="lightgrey"
-    )
-    axs[1, 0].fill_between(
-        time_vector,
-        np.ones((n_shooting + 1,)) * -100,
-        variable_data["lbqdot"][0, 0, :],
-        color="lightgrey",
-    )
-    axs[1, 0].fill_between(
-        time_vector, variable_data["ubqdot"][0, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
-    )
-    axs[1, 1].fill_between(
-        time_vector,
-        np.ones((n_shooting + 1,)) * -100,
-        variable_data["lbqdot"][1, 0, :],
-        color="lightgrey",
-    )
-    axs[1, 1].fill_between(
-        time_vector, variable_data["ubqdot"][1, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
-    )
+    plot_state_bounds(axs, time_vector, variable_data, n_shooting)
 
     save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_states.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
 
+def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
+    for i_ax in range(2):
+        for j_ax in range(3):
+            axs[i_ax, j_ax].fill_between(
+                time_vector,
+                np.ones((n_shooting,)) * -0.1,
+                variable_data["lbmuscle"][i_ax * 2 + j_ax, :],
+                color="lightgrey",
+            )
+            axs[i_ax, j_ax].fill_between(
+                time_vector,
+                variable_data["ubmuscle"][i_ax * 2 + j_ax, :],
+                np.ones((n_shooting,)) * 1.1,
+                color="lightgrey",
+            )
 
 def plot_controls(variable_data, socp_basic, save_path_socp_basic):
 
@@ -151,20 +168,8 @@ def plot_controls(variable_data, socp_basic, save_path_socp_basic):
     if np.any(np.abs(variable_data["ubmuscle"] - 1) > 1e-6):
         raise RuntimeError("Muscle upper bound is not 1, please update the plotting code")
 
-    for i_ax in range(2):
-        for j_ax in range(3):
-            axs[i_ax, j_ax].fill_between(
-                time_vector,
-                np.ones((n_shooting,)) * -0.1,
-                variable_data["lbmuscle"][i_ax * 2 + j_ax, :],
-                color="lightgrey",
-            )
-            axs[i_ax, j_ax].fill_between(
-                time_vector,
-                variable_data["ubmuscle"][i_ax * 2 + j_ax, :],
-                np.ones((n_shooting,)) * 1.1,
-                color="lightgrey",
-            )
+    # Bounds
+    plot_control_bounds(axs, time_vector, variable_data, n_shooting)
 
     plt.tight_layout()
     save_path_fig = save_path_socp_basic.replace(".pkl", "_plot_controls.png").replace("/results/", "/figures/")

@@ -5,6 +5,70 @@ from datetime import datetime
 from ..save_utils import get_print_tol, integrate_single_shooting
 
 
+def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references, vector):
+
+    # Get optimization variables
+    q_opt = np.zeros((n_q, n_random, n_shooting + 1))
+    qdot_opt = np.zeros((n_q, n_random, n_shooting + 1))
+    muscle_opt = np.zeros((n_muscles, n_shooting))
+    k_fb_opt = np.zeros((n_q * n_references, n_shooting))
+    ref_fb_opt = np.zeros((n_references, n_shooting))
+    tau_opt = np.zeros((n_q, n_shooting))
+
+    offset = 0
+    for i_node in range(n_shooting + 1):
+        for i_random in range(n_random):
+            q_opt[:, i_random, i_node] = np.array(vector[offset : offset + n_q]).flatten()
+            offset += n_q
+
+        for i_random in range(n_random):
+            qdot_opt[:, i_random, i_node] = np.array(vector[offset : offset + n_q]).flatten()
+            offset += n_q
+
+        if i_node < n_shooting:
+            muscle_opt[:, i_node] = np.array(vector[offset : offset + n_muscles]).flatten()
+            offset += n_muscles
+
+            k_fb_opt[:, i_node] = np.array(vector[offset : offset + n_q * n_references]).flatten()
+            offset += n_q * n_references
+
+            ref_fb_opt[:, i_node] = np.array(vector[offset : offset + n_references]).flatten()
+            offset += n_references
+
+            tau_opt[:, i_node] = np.array(vector[offset : offset + n_q]).flatten()
+            offset += n_q
+
+    return q_opt, qdot_opt, muscle_opt, k_fb_opt, ref_fb_opt, tau_opt
+
+def get_states_and_controls(
+        n_q,
+        n_random,
+        n_shooting,
+        n_muscles,
+        n_references,
+        q_opt,
+        qdot_opt,
+        muscle_opt,
+        k_fb_opt,
+        ref_fb_opt,
+        tau_opt,
+):
+    # Get optimization variables
+    x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
+    u_opt = np.zeros((n_muscles + n_q * n_references + n_references, n_shooting))
+
+    for i_node in range(n_shooting + 1):
+        x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
+        x_opt[n_q * n_random:, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
+
+        if i_node < n_shooting:
+            u_opt[:n_muscles, i_node] = muscle_opt[:, i_node].flatten()
+            u_opt[n_muscles: n_muscles + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
+            u_opt[n_muscles + n_q * n_references: n_muscles + n_q * n_references + n_references, i_node] = ref_fb_opt[:, i_node].flatten()
+            u_opt[n_muscles + n_q * n_references + n_references: n_muscles + n_q * n_references + n_references + n_q, i_node] = tau_opt[:, i_node].flatten()
+
+    return x_opt, u_opt
+
 def save_socp_basic(
     w_opt: np.ndarray,
     socp_basic: dict[str, any],
@@ -26,73 +90,23 @@ def save_socp_basic(
     final_time = socp_basic["final_time"]
 
     # Get optimization variables
-    q_opt = np.zeros((n_q, n_random, n_shooting + 1))
-    q0 = np.zeros((n_q, n_random, n_shooting + 1))
-    lbq = np.zeros((n_q, n_random, n_shooting + 1))
-    ubq = np.zeros((n_q, n_random, n_shooting + 1))
-
-    qdot_opt = np.zeros((n_q, n_random, n_shooting + 1))
-    qdot0 = np.zeros((n_q, n_random, n_shooting + 1))
-    lbqdot = np.zeros((n_q, n_random, n_shooting + 1))
-    ubqdot = np.zeros((n_q, n_random, n_shooting + 1))
-
-    muscle_opt = np.zeros((n_muscles, n_shooting))
-    muscle0 = np.zeros((n_muscles, n_shooting))
-    lbmuscle = np.zeros((n_muscles, n_shooting))
-    ubmuscle = np.zeros((n_muscles, n_shooting))
-
-    k_fb_opt = np.zeros((n_q * n_references, n_shooting))
-    k_fb0 = np.zeros((n_q * n_references, n_shooting))
-    lbk_fb = np.zeros((n_q * n_references, n_shooting))
-    ubk_fb = np.zeros((n_q * n_references, n_shooting))
-
-    ref_fb_opt = np.zeros((n_references, n_shooting))
-    ref_fb0 = np.zeros((n_references, n_shooting))
-    lbref_fb = np.zeros((n_references, n_shooting))
-    ubref_fb = np.zeros((n_references, n_shooting))
-
-    x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
-    u_opt = np.zeros((n_muscles + n_q * n_references + n_references, n_shooting))
-
-    offset = 0
-    for i_node in range(n_shooting + 1):
-        for i_random in range(n_random):
-            q_opt[:, i_random, i_node] = np.array(w_opt[offset : offset + n_q]).flatten()
-            q0[:, i_random, i_node] = np.array(w0[offset : offset + n_q]).flatten()
-            lbq[:, i_random, i_node] = np.array(lbw[offset : offset + n_q]).flatten()
-            ubq[:, i_random, i_node] = np.array(ubw[offset : offset + n_q]).flatten()
-            offset += n_q
-        x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
-
-        for i_random in range(n_random):
-            qdot_opt[:, i_random, i_node] = np.array(w_opt[offset : offset + n_q]).flatten()
-            qdot0[:, i_random, i_node] = np.array(w0[offset : offset + n_q]).flatten()
-            lbqdot[:, i_random, i_node] = np.array(lbw[offset : offset + n_q]).flatten()
-            ubqdot[:, i_random, i_node] = np.array(ubw[offset : offset + n_q]).flatten()
-            offset += n_q
-        x_opt[n_q * n_random :, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
-
-        if i_node < n_shooting:
-            muscle_opt[:, i_node] = np.array(w_opt[offset : offset + n_muscles]).flatten()
-            muscle0[:, i_node] = np.array(w0[offset : offset + n_muscles]).flatten()
-            lbmuscle[:, i_node] = np.array(lbw[offset : offset + n_muscles]).flatten()
-            ubmuscle[:, i_node] = np.array(ubw[offset : offset + n_muscles]).flatten()
-            offset += n_muscles
-            u_opt[:n_muscles, i_node] = muscle_opt[:, i_node].flatten()
-
-            k_fb_opt[:, i_node] = np.array(w_opt[offset : offset + n_q * n_references]).flatten()
-            k_fb0[:, i_node] = np.array(w0[offset : offset + n_q * n_references]).flatten()
-            lbk_fb[:, i_node] = np.array(lbw[offset : offset + n_q * n_references]).flatten()
-            ubk_fb[:, i_node] = np.array(ubw[offset : offset + n_q * n_references]).flatten()
-            offset += n_q * n_references
-            u_opt[n_muscles : n_muscles + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
-
-            ref_fb_opt[:, i_node] = np.array(w_opt[offset : offset + n_references]).flatten()
-            ref_fb0[:, i_node] = np.array(w0[offset : offset + n_references]).flatten()
-            lbref_fb[:, i_node] = np.array(lbw[offset : offset + n_references]).flatten()
-            ubref_fb[:, i_node] = np.array(ubw[offset : offset + n_references]).flatten()
-            offset += n_references
-            u_opt[n_muscles + n_q * n_references :, i_node] = ref_fb_opt[:, i_node].flatten()
+    q_opt, qdot_opt, muscle_opt, k_fb_opt, ref_fb_opt, tau_opt = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references, w_opt)
+    q0, qdot0, muscle0, k_fb0, ref_fb0, tau0 = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references, w0)
+    lbq, lbqdot, lbmuscle, lbk_fb, lbref_fb, lbtau = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references, lbw)
+    ubq, ubqdot, ubmuscle, ubk_fb, ubref_fb, ubtau = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references, ubw)
+    x_opt, u_opt = get_states_and_controls(
+        n_q,
+        n_random,
+        n_shooting,
+        n_muscles,
+        n_references,
+        q_opt,
+        qdot_opt,
+        muscle_opt,
+        k_fb_opt,
+        ref_fb_opt,
+        tau_opt,
+    )
 
     time_vector = np.linspace(0, final_time, n_shooting + 1)
 
@@ -145,6 +159,10 @@ def save_socp_basic(
         "ref_fb0": ref_fb0,
         "lbref_fb": lbref_fb,
         "ubref_fb": ubref_fb,
+        "tau_opt": tau_opt,
+        "tau0": tau0,
+        "lbtau": lbtau,
+        "ubtau": ubtau,
         "time_vector": time_vector,
         "computational_time": computational_time,
         "nb_iterations": nb_iterations,

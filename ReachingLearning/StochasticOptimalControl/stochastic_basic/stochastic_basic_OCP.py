@@ -200,6 +200,7 @@ def prepare_socp_basic(
     g = []
     lbg = []
     ubg = []
+    g_names = []
 
     # Dynamics
     dynamics_func, integration_func = declare_dynamics_equation(
@@ -213,12 +214,15 @@ def prepare_socp_basic(
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
+    g_names += [f"mean_start_on_target"] * len(lbg_target)
 
     # Multi-threaded continuity constraint
     x_integrated = multi_threaded_integrator(cas.horzcat(*x[:-1]), cas.horzcat(*u), cas.horzcat(*noises_numerical))
-    g += [cas.reshape(x_integrated - cas.horzcat(*x[1:]), -1, 1)]
+    g_continuity = cas.reshape(x_integrated - cas.horzcat(*x[1:]), -1, 1)
+    g += [g_continuity]
     lbg += [0] * ((model.nb_q * 2 * n_random) * n_shooting)
     ubg += [0] * ((model.nb_q * 2 * n_random) * n_shooting)
+    g_names += [f"dynamics_continuity"] * ((model.nb_q * 2 * n_random) * n_shooting)
 
     # Objectives
     for i_node in range(n_shooting):
@@ -228,9 +232,13 @@ def prepare_socp_basic(
 
     # Constraints
     for i_node in range(n_shooting):
-        g += ref_equals_mean_ref(model, x[i_node], u[i_node])
+        # Reference equality constraint
+        reference_constraint = ref_equals_mean_ref(model, x[i_node], u[i_node])
+        g += reference_constraint
         lbg += [0] * model.n_references
         ubg += [0] * model.n_references
+        g_names += [f"ref_equals_mean_ref"] * model.n_references
+
         # Null torque constraint
         g += residual_tau_equals_zero(model, u[i_node])
         lbg += [0] * model.nb_q
@@ -242,10 +250,12 @@ def prepare_socp_basic(
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
+    g_names += [f"mean_reach_target"] * len(lbg_target)
     g_target = mean_end_effector_velocity(model, x[-1])
     g += g_target
     lbg += [0, 0]
     ubg += [0, 0]
+    g_names += [f"mean_end_effector_velocity"] * 2
 
     ocp = {
         "model": model,
@@ -259,6 +269,7 @@ def prepare_socp_basic(
         "g": cas.vertcat(*g),
         "lbg": cas.vertcat(*lbg),
         "ubg": cas.vertcat(*ubg),
+        "g_names": g_names,
         "n_shooting": n_shooting,
         "final_time": final_time,
         "example_type": example_type,

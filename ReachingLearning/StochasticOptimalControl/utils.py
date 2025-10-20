@@ -1,8 +1,9 @@
 import numpy as np
 import casadi as cas
 import biorbd_casadi as biorbd
-
 from enum import Enum
+
+from .live_plot_utils import OnlineCallback
 
 
 class ExampleType(Enum):
@@ -90,6 +91,23 @@ def solve(
     ubw = ocp["ubw"]
     lbg = ocp["lbg"]
     ubg = ocp["ubg"]
+    g_names = ocp["g_names"]
+
+    if len(g_names) != g.shape[0]:
+        raise ValueError("The length of g_names must be equal to the number of constraints in g.")
+
+    # Online callback for live plotting
+    grad_f_func = cas.Function("grad_f", [w], [cas.gradient(j, w)])
+    grad_g_func = cas.Function("grad_g", [w], [cas.jacobian(g, w).T])
+
+    online_callback = OnlineCallback(
+        nx=w.shape[0],
+        ng=g.shape[0],
+        grad_f_func=grad_f_func,
+        grad_g_func=grad_g_func,
+        g_names=g_names,
+        ocp=ocp,
+    )
 
     # Set IPOPT options
     opts = {
@@ -98,7 +116,8 @@ def solve(
         "ipopt.linear_solver": "ma97",
         "ipopt.hessian_approximation": hessian_approximation,
         "ipopt.output_file": output_file,
-        "expand": True,
+        # "expand": True,
+        "iteration_callback": online_callback,
     }
 
     # Create an NLP solver

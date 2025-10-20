@@ -21,7 +21,7 @@ force_field_magnitude = 0
 
 
 n_random = 15
-n_threads = 12
+n_threads = 7
 n_simulations = 30
 seed = 0
 
