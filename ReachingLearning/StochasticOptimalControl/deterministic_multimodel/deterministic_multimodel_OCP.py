@@ -92,19 +92,19 @@ def declare_noises(n_shooting, n_random, motor_noise_magnitude):
     """
     Motor noise: 2 tau
     """
-    n_muscles = 6
+    n_q = 2
 
     noises_numerical = []
     for i_shooting in range(n_shooting):
-        this_motor_noise_vector = np.zeros((n_muscles * n_random,))
+        this_motor_noise_vector = np.zeros((n_q * n_random,))
         for i_random in range(n_random):
-            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = np.random.normal(
-                loc=np.zeros((n_muscles,)),
-                scale=np.reshape(np.array(motor_noise_magnitude), (n_muscles,)),
-                size=n_muscles,
+            this_motor_noise_vector[n_q * i_random : n_q * (i_random + 1)] = np.random.normal(
+                loc=np.zeros((n_q,)),
+                scale=np.reshape(np.array(motor_noise_magnitude), (n_q,)),
+                size=n_q,
             )
         noises_numerical += [this_motor_noise_vector]
-    noises_single = cas.MX.sym("noises_single", n_muscles * n_random)
+    noises_single = cas.MX.sym("noises_single", n_q * n_random)
     return noises_numerical, noises_single
 
 
