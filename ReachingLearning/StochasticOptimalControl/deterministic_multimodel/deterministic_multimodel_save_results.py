@@ -5,11 +5,12 @@ from datetime import datetime
 from ..save_utils import get_print_tol, integrate_single_shooting
 
 
-def get_variables_from_vector(n_q, n_random, n_shooting, vector):
+def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, vector):
 
     # Get optimization variables
     q_opt = np.zeros((n_q, n_random, n_shooting + 1))
     qdot_opt = np.zeros((n_q, n_random, n_shooting + 1))
+    muscle_opt = np.zeros((n_muscles, n_shooting))
     tau_opt = np.zeros((n_q, n_shooting))
 
     offset = 0
@@ -23,31 +24,36 @@ def get_variables_from_vector(n_q, n_random, n_shooting, vector):
             offset += n_q
 
         if i_node < n_shooting:
+            muscle_opt[:, i_node] = np.array(vector[offset : offset + n_muscles]).flatten()
+            offset += n_muscles
 
             tau_opt[:, i_node] = np.array(vector[offset : offset + n_q]).flatten()
             offset += n_q
 
-    return q_opt, qdot_opt, tau_opt
+    return q_opt, qdot_opt, muscle_opt, tau_opt
 
 
 def get_states_and_controls(
     n_q,
     n_random,
     n_shooting,
+    n_muscles,
     q_opt,
     qdot_opt,
+    muscle_opt,
     tau_opt,
 ):
     # Get optimization variables
     x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
-    u_opt = np.zeros((n_q, n_shooting))
+    u_opt = np.zeros((n_muscles + n_q, n_shooting))
 
     for i_node in range(n_shooting + 1):
         x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
         x_opt[n_q * n_random :, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
 
         if i_node < n_shooting:
-            u_opt[:, i_node] = tau_opt[:, i_node].flatten()
+            u_opt[: n_muscles, i_node] = muscle_opt[:, i_node].flatten()
+            u_opt[n_muscles : n_muscles + n_q, i_node] = tau_opt[:, i_node].flatten()
 
     return x_opt, u_opt
 
@@ -61,6 +67,7 @@ def save_ocp_multimodel(
 ):
 
     n_q = ocp_multimodel["model"].nb_q
+    n_muscles = ocp_multimodel["model"].nb_muscles
     n_random = ocp_multimodel["model"].n_random
 
     # Parse ocp
@@ -71,16 +78,18 @@ def save_ocp_multimodel(
     final_time = ocp_multimodel["final_time"]
 
     # Get optimization variables
-    q_opt, qdot_opt, tau_opt = get_variables_from_vector(n_q, n_random, n_shooting, w_opt)
-    q0, qdot0, tau0 = get_variables_from_vector(n_q, n_random, n_shooting, w0)
-    lbq, lbqdot, lbtau = get_variables_from_vector(n_q, n_random, n_shooting, lbw)
-    ubq, ubqdot, ubtau = get_variables_from_vector(n_q, n_random, n_shooting, ubw)
+    q_opt, qdot_opt, muscle_opt, tau_opt = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, w_opt)
+    q0, qdot0, muscle_opt, tau0 = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, w0)
+    lbq, lbqdot, lbmuscle, lbtau = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, lbw)
+    ubq, ubqdot, ubmuscle, ubtau = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, ubw)
     x_opt, u_opt = get_states_and_controls(
         n_q,
         n_random,
         n_shooting,
+        n_muscles,
         q_opt,
         qdot_opt,
+        muscle_opt,
         tau_opt,
     )
 
@@ -123,6 +132,10 @@ def save_ocp_multimodel(
         "lbqdot": lbqdot,
         "ubqdot": ubqdot,
         "qdot_integrated": qdot_integrated,
+        "muscle_opt": muscle_opt,
+        "muscle0": muscle_opt,
+        "lbmuscle": lbmuscle,
+        "ubmuscle": ubmuscle,
         "tau_opt": tau_opt,
         "tau0": tau0,
         "lbtau": lbtau,

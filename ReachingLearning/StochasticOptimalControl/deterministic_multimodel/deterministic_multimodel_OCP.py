@@ -5,18 +5,12 @@ from ..utils import ExampleType
 from ..constraints_utils import (
     mean_start_on_target,
     mean_reach_target,
-    ref_equals_mean_ref,
     mean_end_effector_velocity,
-    residual_tau_equals_zero,
     TARGET_START,
     TARGET_END,
 )
 from ..objectives_utils import (
     reach_target_consistently,
-    minimize_stochastic_efforts,
-    minimize_gains,
-    minimize_muscle_activations,
-    minimize_residual_tau,
 )
 from .deterministic_multimodel_arm_model import DeterministicMultiArmModel
 
@@ -29,10 +23,12 @@ def declare_variables(
     Declare all variables (states and controls) and their initial guess
         - q: shoulder and elbow linear interpolation
         - qdot: shoulder and elbow 0
+        - muscle activations: all 0.1
         - residual tau: all 0
     and bounds
         - q: shoulder in [0, np.pi/2], elbow in [0, 7/8 * np.pi]
         - qdot: shoulder and elbow in [-10*np.pi, 10*np.pi]
+        - muscle activations: all in [1e-6, 1]
         - residual tau: all in [-10, 10]
     """
     n_q = 2
@@ -75,14 +71,20 @@ def declare_variables(
             ubw += [10 * np.pi, 10 * np.pi] * n_random
         w0 += [0, 0] * n_random
         if i_node < n_shooting:
+            # Muscle activations
+            n_muscles = 6
+            muscle_i = cas.MX.sym(f"muscle_{i_node}", n_muscles)
+            lbw += [1e-6] * n_muscles
+            ubw += [1.0] * n_muscles
+            w0 += [0.1] * n_muscles
             # Residual tau
             tau_i = cas.MX.sym(f"tau_{i_node}", n_q)
             lbw += [-10] * n_q
             ubw += [10] * n_q
             w0 += [0, 0]
 
-            u += [tau_i]
-            w += [tau_i]
+            u += [cas.vertcat(muscle_i, tau_i)]
+            w += [cas.vertcat(muscle_i, tau_i)]
     return x, u, w, lbw, ubw, w0
 
 
@@ -193,7 +195,8 @@ def prepare_ocp_multimodel(
 
     # Objectives
     for i_node in range(n_shooting):
-        j += cas.sum1(u[i_node] ** 2) * dt / 2
+        j += cas.sum1(u[i_node][:model.nb_muscles] ** 2) * dt / 2  # muscle activations
+        j += cas.sum1(u[i_node][model.nb_muscles:] ** 2) * 10 * dt / 2  # tau residuals
     j += reach_target_consistently(model, x[-1], example_type)
 
     # Terminal constraint

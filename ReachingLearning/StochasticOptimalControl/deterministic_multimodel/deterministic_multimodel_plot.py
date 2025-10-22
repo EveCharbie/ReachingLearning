@@ -121,7 +121,7 @@ def plot_states(variable_data, ocp_multimodel, save_path_ocp_multimodel):
     # plt.close()
 
 
-def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
+def plot_tau_bounds(axs, time_vector, variable_data, n_shooting):
     for i_ax in range(2):
         axs[i_ax].fill_between(
             time_vector,
@@ -136,6 +136,22 @@ def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
             color="lightgrey",
         )
 
+
+def plot_muscle_bounds(axs, time_vector, variable_data, n_shooting):
+    for i_ax in range(2):
+        for j_ax in range(3):
+            axs[i_ax, j_ax].fill_between(
+                time_vector,
+                np.ones((n_shooting,)) * -0.1,
+                variable_data["lbmuscle"][i_ax * 2 + j_ax, :],
+                color="lightgrey",
+            )
+            axs[i_ax, j_ax].fill_between(
+                time_vector,
+                variable_data["ubmuscle"][i_ax * 2 + j_ax, :],
+                np.ones((n_shooting,)) * 1.1,
+                color="lightgrey",
+            )
 
 def plot_single_bounds(ax, time_vector, variable_data, n_shooting, bound_name):
     ax.fill_between(
@@ -169,6 +185,7 @@ def plot_controls(variable_data, ocp_multimodel, save_path_ocp_multimodel):
     n_shooting = ocp_multimodel["n_shooting"]
     time_vector = variable_data["time_vector"][:-1]
 
+    # --- taus --- #
     # Set up the plots
     fig, axs = plt.subplots(1, 2, figsize=(6, 6))
     axs[0].set_xlabel("Time [s]")
@@ -179,7 +196,7 @@ def plot_controls(variable_data, ocp_multimodel, save_path_ocp_multimodel):
     axs[1].plot(time_vector, variable_data["tau_opt"][1, :], ".", markersize=1, color=ocp_multimodel_color)
 
     # Bounds
-    plot_control_bounds(axs, time_vector, variable_data, n_shooting)
+    plot_tau_bounds(axs, time_vector, variable_data, n_shooting)
     axs[0].set_ylim([np.min(variable_data["lbtau"]) - 0.1, np.max(variable_data["ubtau"]) + 0.1])
     axs[1].set_ylim([np.min(variable_data["lbtau"]) - 0.1, np.max(variable_data["ubtau"]) + 0.1])
     axs[0].set_title("Shoulder torque")
@@ -188,7 +205,57 @@ def plot_controls(variable_data, ocp_multimodel, save_path_ocp_multimodel):
     axs[1].set_ylabel("Torque [Nm]")
 
     plt.tight_layout()
-    save_path_fig = save_path_ocp_multimodel.replace(".pkl", "_plot_controls.png").replace("/results/", "/figures/")
+    save_path_fig = save_path_ocp_multimodel.replace(".pkl", "_plot_taus.png").replace("/results/", "/figures/")
+    plt.savefig(save_path_fig)
+    # plt.close()
+
+    # --- muscles --- #
+    # Set up the plots
+    fig, axs = plt.subplots(2, 3, figsize=(6, 6))
+    fig, axs = set_columns_suptitles(fig, axs)
+    axs[1, 0].set_xlabel("Time [s]")
+    axs[1, 1].set_xlabel("Time [s]")
+    axs[1, 2].set_xlabel("Time [s]")
+    axs[0, 0].set_ylabel("Flexor Activation")
+    axs[1, 0].set_ylabel("Extensor Activation")
+    axs[0, 0].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[0, 1].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[0, 2].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[1, 0].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[1, 1].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[1, 2].set_ylim([np.min(variable_data["lbmuscle"]) - 0.1, np.max(variable_data["ubmuscle"]) + 0.1])
+    axs[0, 0].set_xlim([0, time_vector[-1]])
+    axs[0, 1].set_xlim([0, time_vector[-1]])
+    axs[0, 2].set_xlim([0, time_vector[-1]])
+    axs[1, 0].set_xlim([0, time_vector[-1]])
+    axs[1, 1].set_xlim([0, time_vector[-1]])
+    axs[1, 2].set_xlim([0, time_vector[-1]])
+
+    # Optimization variables
+    axs[0, 0].plot(time_vector, variable_data["muscle_opt"][2, :], ".", markersize=1, color=ocp_multimodel_color)
+    axs[0, 0].set_title("Deltoid Anterior")
+    axs[0, 1].plot(time_vector, variable_data["muscle_opt"][0, :], ".", markersize=1, color=ocp_multimodel_color)
+    axs[0, 1].set_title("Brachialis")
+    axs[0, 2].plot(time_vector, variable_data["muscle_opt"][4, :], ".", markersize=1, color=ocp_multimodel_color)
+    axs[0, 2].set_title("Biceps")
+    axs[1, 0].plot(time_vector, variable_data["muscle_opt"][3, :], ".", markersize=1, color=ocp_multimodel_color)
+    axs[1, 0].set_title("Deltoid Posterior")
+    axs[1, 1].plot(time_vector, variable_data["muscle_opt"][1, :], ".", markersize=1, color=ocp_multimodel_color)
+    axs[1, 1].set_title("Triceps Lateral")
+    axs[1, 2].plot(time_vector, variable_data["muscle_opt"][5, :], ".", markersize=1, color=ocp_multimodel_color)
+    axs[1, 2].set_title("Triceps Long")
+
+    # Bounds
+    if np.any(np.abs(variable_data["lbmuscle"] - 1e-6) > 1e-6):
+        raise RuntimeError("Muscle lower bound is not 1e-6, please update the plotting code")
+    if np.any(np.abs(variable_data["ubmuscle"] - 1) > 1e-6):
+        raise RuntimeError("Muscle upper bound is not 1, please update the plotting code")
+
+    # Bounds
+    plot_muscle_bounds(axs, time_vector, variable_data, n_shooting)
+
+    plt.tight_layout()
+    save_path_fig = save_path_ocp_multimodel.replace(".pkl", "_plot_muscles.png").replace("/results/", "/figures/")
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
