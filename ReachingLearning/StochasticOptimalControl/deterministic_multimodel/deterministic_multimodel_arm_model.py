@@ -27,6 +27,10 @@ class DeterministicMultiArmModel(ArmModel):
     def collect_tau(self, q, qdot, muscle_activations, tau, motor_noise_this_time):
         """
         Collect all tau components
+
+        Note: that the following line compromises convergence :(
+        `muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations + motor_noise_this_time)`
+        So we add the noise on tau instead
         """
         muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations)
         tau_friction = -self.friction_coefficients @ qdot
