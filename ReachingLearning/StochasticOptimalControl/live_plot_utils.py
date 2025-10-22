@@ -33,8 +33,6 @@ class OnlineCallback(Callback):
         self.time_vector = np.linspace(1, self.model.n_shooting, self.model.n_shooting + 1)
 
         # Create the ipopt output plot
-        # self.create_ipopt_output_plot()
-        # self.create_variable_plot(ocp["lbw"], ocp["ubw"])
         self.construct("plots", {})
 
         self.queue = mp.Queue()
@@ -491,8 +489,8 @@ class ProcessPlotter(object):
         """
         self.pipe = pipe
         self.online_callback.create_ipopt_output_plot()
-        self.online_callback.create_variable_plot(options["lbw"], options["ubw"])
-        timer = self.online_callback.states_fig.canvas.new_timer(interval=100)
+        # self.online_callback.create_variable_plot(options["lbw"], options["ubw"])
+        timer = self.online_callback.ipopt_fig.canvas.new_timer(interval=100)
         timer.add_callback(self.callback)
         timer.start()
         plt.show()
@@ -509,7 +507,7 @@ class ProcessPlotter(object):
         while not self.pipe.empty():
             args = self.pipe.get()
             self.online_callback.update_ipopt_output_plot(args)
-            self.online_callback.update_variable_plot(args)
+            # self.online_callback.update_variable_plot(args)
 
         nb_iter = len(self.online_callback.ipopt_axes[0].lines[0].get_xdata())
         self.online_callback.ipopt_fig.canvas.draw()
@@ -517,13 +515,13 @@ class ProcessPlotter(object):
             self.online_callback.ipopt_fig.savefig(f"ipopt_output_{nb_iter}.png")
         self.online_callback.ipopt_fig.canvas.flush_events()
 
-        self.online_callback.states_fig.canvas.draw()
-        if nb_iter % 1000 == 0:
-            self.online_callback.states_fig.savefig(f"states_output_{nb_iter}.png")
-        self.online_callback.states_fig.canvas.flush_events()
-
-        self.online_callback.controls_fig.canvas.draw()
-        if nb_iter % 1000 == 0:
-            self.online_callback.controls_fig.savefig(f"controls_output_{nb_iter}.png")
-        self.online_callback.controls_fig.canvas.flush_events()
+        # self.online_callback.states_fig.canvas.draw()
+        # if nb_iter % 1000 == 0:
+        #     self.online_callback.states_fig.savefig(f"states_output_{nb_iter}.png")
+        # self.online_callback.states_fig.canvas.flush_events()
+        #
+        # self.online_callback.controls_fig.canvas.draw()
+        # if nb_iter % 1000 == 0:
+        #     self.online_callback.controls_fig.savefig(f"controls_output_{nb_iter}.png")
+        # self.online_callback.controls_fig.canvas.flush_events()
         return True
