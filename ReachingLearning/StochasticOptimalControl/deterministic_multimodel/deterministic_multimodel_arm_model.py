@@ -18,19 +18,18 @@ class DeterministicMultiArmModel(ArmModel):
 
         self.n_random = n_random
         self.n_shooting = n_shooting
-        self.n_noises = self.nb_q
+        self.n_noises = self.nb_muscles
 
-        # TODO: CHECK THE MOTOR NOISE MAGNITUDE (* dt)
-        motor_noise_magnitude = cas.DM(np.array([motor_noise_std] * self.nb_q))
+        motor_noise_magnitude = cas.DM(np.array([motor_noise_std] * self.nb_muscles))
         self.motor_noise_magnitude = motor_noise_magnitude
 
     def collect_tau(self, q, qdot, muscle_activations, tau, motor_noise_this_time):
         """
         Collect all tau components
         """
-        muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations)
+        muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations + motor_noise_this_time)
         tau_friction = -self.friction_coefficients @ qdot
-        torques_computed = muscles_tau + tau_friction + tau + motor_noise_this_time
+        torques_computed = muscles_tau + tau_friction + tau
         return torques_computed
 
     def dynamics(
@@ -57,7 +56,7 @@ class DeterministicMultiArmModel(ArmModel):
         for i_random in range(self.n_random):
             q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
             qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
-            motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_q]
+            motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_muscles]
             noise_offset += self.n_noises
 
             # Collect tau components
