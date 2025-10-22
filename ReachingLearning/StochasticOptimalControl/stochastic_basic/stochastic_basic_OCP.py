@@ -11,7 +11,13 @@ from ..constraints_utils import (
     TARGET_START,
     TARGET_END,
 )
-from ..objectives_utils import reach_target_consistently, minimize_stochastic_efforts, minimize_gains
+from ..objectives_utils import (
+    reach_target_consistently,
+    minimize_stochastic_efforts,
+    minimize_gains,
+    minimize_muscle_activations,
+    minimize_residual_tau,
+)
 from .stochastic_basic_arm_model import StochasticBasicArmModel
 
 
@@ -227,6 +233,8 @@ def prepare_socp_basic(
     # Objectives
     for i_node in range(n_shooting):
         j += minimize_stochastic_efforts(model, x[i_node], u[i_node], noises_numerical[i_node]) * dt / 2
+        j += minimize_muscle_activations(model, u[i_node]) * dt / 2
+        j += minimize_residual_tau(model, u[i_node]) * dt / 2
         j += minimize_gains(model, u[i_node]) * dt / 10  # Regularization
     j += reach_target_consistently(model, x[-1], example_type)
 
@@ -239,11 +247,11 @@ def prepare_socp_basic(
         ubg += [0] * model.n_references
         g_names += [f"ref_equals_mean_ref"] * model.n_references
 
-        # Null torque constraint
-        g += residual_tau_equals_zero(model, u[i_node])
-        lbg += [0] * model.nb_q
-        ubg += [0] * model.nb_q
-        g_names += [f"residual_tau_equals_zero"] * model.nb_q
+        # # Null torque constraint
+        # g += residual_tau_equals_zero(model, u[i_node])
+        # lbg += [0] * model.nb_q
+        # ubg += [0] * model.nb_q
+        # g_names += [f"residual_tau_equals_zero"] * model.nb_q
 
     # Terminal constraint
     g_target, lbg_target, ubg_target = mean_reach_target(model, x[-1], example_type)

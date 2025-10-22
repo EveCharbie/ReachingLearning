@@ -266,10 +266,10 @@ class OnlineCallback(Callback):
         """
         This function creates the plots for the ipopt output: f, g, inf_pr, inf_du.
         """
-        from .stochastic_basic.stochastic_basic_plot import plot_state_bounds, plot_control_bounds
+        from .stochastic_basic.stochastic_basic_plot import plot_state_bounds, plot_control_bounds, plot_single_bounds
 
         # Bounds
-        lbq, lbqdot, lbmuscle, _, _, _ = get_variables_from_vector(
+        lbq, lbqdot, lbmuscle, lbk_fb, lbref_fb, lbtau = get_variables_from_vector(
             self.model.nb_q,
             self.model.n_random,
             self.model.n_shooting,
@@ -277,7 +277,7 @@ class OnlineCallback(Callback):
             self.model.n_references,
             lbx,
         )
-        ubq, ubqdot, ubmuscle, _, _, _ = get_variables_from_vector(
+        ubq, ubqdot, ubmuscle, ubk_fb, ubref_fb, ubtau = get_variables_from_vector(
             self.model.nb_q,
             self.model.n_random,
             self.model.n_shooting,
@@ -292,6 +292,12 @@ class OnlineCallback(Callback):
             "ubqdot": ubqdot,
             "lbmuscle": lbmuscle,
             "ubmuscle": ubmuscle,
+            "lbk_fb": lbk_fb,
+            "ubk_fb": ubk_fb,
+            "lbref_fb": lbref_fb,
+            "ubref_fb": ubref_fb,
+            "lbtau": lbtau,
+            "ubtau": ubtau,
         }
 
         # States
@@ -326,13 +332,16 @@ class OnlineCallback(Callback):
         self.states_axes = axs
 
         # Controls
-        controls_fig, axs = plt.subplots(2, 3, num="Controls")
+        controls_fig, axs = plt.subplots(3, 3, num="Controls")
         axs[0, 0].set_title("Deltoid Anterior")
         axs[0, 1].set_title("Brachialis")
         axs[0, 2].set_title("Biceps")
         axs[1, 0].set_title("Deltoid Posterior")
         axs[1, 1].set_title("Triceps Lateral")
         axs[1, 2].set_title("Triceps Long")
+        axs[2, 0].set_title("Gains (K)")
+        axs[2, 1].set_title("References (ref_fb)")
+        axs[2, 2].set_title("Joint Torques (tau)")
 
         plot_muscle2 = axs[0, 0].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
         plot_muscle0 = axs[0, 1].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
@@ -340,14 +349,35 @@ class OnlineCallback(Callback):
         plot_muscle3 = axs[1, 0].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
         plot_muscle1 = axs[1, 1].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
         plot_muscle5 = axs[1, 2].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
-        controls_plots = [
-            plot_muscle2,
-            plot_muscle0,
-            plot_muscle4,
-            plot_muscle3,
-            plot_muscle1,
-            plot_muscle5,
-        ]
+        muscle_plots = [
+                    plot_muscle2,
+                    plot_muscle0,
+                    plot_muscle4,
+                    plot_muscle3,
+                    plot_muscle1,
+                    plot_muscle5,
+                ]
+
+        # Gain plots
+        colors = get_cmap("viridis")
+        plot_gain = []
+        for i_gain in range(self.model.nb_q * self.model.n_references):
+            color = colors(i_gain / (self.model.nb_q * self.model.n_references))
+            plot_gain += axs[2, 0].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color)
+
+        # Refs plots
+        colors = get_cmap("viridis")
+        plot_refs = []
+        for i_reference in range(self.model.n_references):
+            color = colors(i_reference / (self.model.n_references))
+            plot_refs += axs[2, 1].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color)
+
+        # Refs plots
+        colors = get_cmap("viridis")
+        plot_tau = []
+        for i_tau in range(self.model.nb_q):
+            color = colors(i_tau / (self.model.nb_q))
+            plot_tau += axs[2, 2].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color)
 
         # Bounds
         plot_control_bounds(axs, self.time_vector[:-1], fake_variable_data, self.model.n_shooting)
@@ -357,6 +387,17 @@ class OnlineCallback(Callback):
         axs[1, 0].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
         axs[1, 1].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
         axs[1, 2].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
+
+        plot_single_bounds(axs[2, 0], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="k_fb")
+        axs[2, 0].set_ylim(np.min(lbk_fb) - 0.1, np.max(ubk_fb) + 0.1)
+
+        plot_single_bounds(axs[2, 1], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="ref_fb")
+        axs[2, 1].set_ylim(np.min(lbref_fb) - 0.1, np.max(ubref_fb) + 0.1)
+
+        plot_single_bounds(axs[2, 2], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="tau")
+        axs[2, 2].set_ylim(np.min(lbtau) - 0.1, np.max(ubtau) + 0.1)
+
+        controls_plots = muscle_plots + plot_gain + plot_refs + plot_tau
 
         self.controls_fig = controls_fig
         self.controls_plots = controls_plots
@@ -395,6 +436,17 @@ class OnlineCallback(Callback):
         self.controls_plots[4].set_ydata(muscle[1, :])
         self.controls_plots[5].set_ydata(muscle[5, :])
 
+        muscle_offset = 6
+        for i_gain in range(self.model.nb_q * self.model.n_references):
+            self.controls_plots[muscle_offset + i_gain].set_ydata(k_fb[i_gain, :])
+
+        gain_offset = muscle_offset + self.model.nb_q * self.model.n_references
+        for i_reference in range(self.model.n_references):
+            self.controls_plots[gain_offset + i_reference].set_ydata(ref_fb[i_reference, :])
+
+        reference_offset = gain_offset + self.model.n_references
+        for i_tau in range(self.model.nb_q):
+            self.controls_plots[reference_offset + i_tau].set_ydata(tau[i_tau, :])
 
     def eval(self, arg: list | tuple) -> list:
         """
@@ -440,7 +492,6 @@ class ProcessPlotter(object):
         self.pipe = pipe
         self.online_callback.create_ipopt_output_plot()
         self.online_callback.create_variable_plot(options["lbw"], options["ubw"])
-        # timer = self.online_callback.ipopt_fig.canvas.new_timer(interval=100)
         timer = self.online_callback.states_fig.canvas.new_timer(interval=100)
         timer.add_callback(self.callback)
         timer.start()
@@ -460,10 +511,19 @@ class ProcessPlotter(object):
             self.online_callback.update_ipopt_output_plot(args)
             self.online_callback.update_variable_plot(args)
 
+        nb_iter = len(self.online_callback.ipopt_axes[0].lines[0].get_xdata())
         self.online_callback.ipopt_fig.canvas.draw()
+        if nb_iter % 1000 == 0:
+            self.online_callback.ipopt_fig.savefig(f"ipopt_output_{nb_iter}.png")
         self.online_callback.ipopt_fig.canvas.flush_events()
+
         self.online_callback.states_fig.canvas.draw()
+        if nb_iter % 1000 == 0:
+            self.online_callback.states_fig.savefig(f"states_output_{nb_iter}.png")
         self.online_callback.states_fig.canvas.flush_events()
+
         self.online_callback.controls_fig.canvas.draw()
+        if nb_iter % 1000 == 0:
+            self.online_callback.controls_fig.savefig(f"controls_output_{nb_iter}.png")
         self.online_callback.controls_fig.canvas.flush_events()
         return True

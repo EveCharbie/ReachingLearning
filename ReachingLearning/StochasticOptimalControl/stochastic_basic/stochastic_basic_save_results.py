@@ -55,7 +55,7 @@ def get_states_and_controls(
 ):
     # Get optimization variables
     x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
-    u_opt = np.zeros((n_muscles + n_q * n_references + n_references, n_shooting))
+    u_opt = np.zeros((n_muscles + n_q * n_references + n_references + n_q, n_shooting))
 
     for i_node in range(n_shooting + 1):
         x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
@@ -63,9 +63,13 @@ def get_states_and_controls(
 
         if i_node < n_shooting:
             u_opt[:n_muscles, i_node] = muscle_opt[:, i_node].flatten()
-            u_opt[n_muscles: n_muscles + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
-            u_opt[n_muscles + n_q * n_references: n_muscles + n_q * n_references + n_references, i_node] = ref_fb_opt[:, i_node].flatten()
-            u_opt[n_muscles + n_q * n_references + n_references: n_muscles + n_q * n_references + n_references + n_q, i_node] = tau_opt[:, i_node].flatten()
+            muscle_offset = n_muscles
+            u_opt[muscle_offset: muscle_offset + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
+            gain_offset = muscle_offset + n_q * n_references
+            u_opt[gain_offset: gain_offset + n_references, i_node] = ref_fb_opt[:, i_node].flatten()
+            reference_offset = gain_offset + n_references
+            u_opt[reference_offset: reference_offset + n_q, i_node] = tau_opt[:, i_node].flatten()
+            tau_offset = reference_offset + n_q
 
     return x_opt, u_opt
 

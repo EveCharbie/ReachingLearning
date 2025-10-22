@@ -2,6 +2,7 @@ import numpy as np
 import casadi as cas
 import biorbd_casadi as biorbd
 from enum import Enum
+import matplotlib.pyplot as plt
 
 from .live_plot_utils import OnlineCallback
 
@@ -72,6 +73,16 @@ def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
         x_prev = x_prev + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
     return x_all
 
+def plot_jacobian(g: cas.MX, w: cas.MX):
+    """Plot the Jacobian matrix using matplotlib"""
+    sparsity = cas.jacobian_sparsity(g, w)
+    plt.figure()
+    plt.imshow(sparsity)
+    plt.title("Jacobian Sparsity Pattern")
+    plt.xlabel("Variables")
+    plt.ylabel("Constraints")
+    plt.savefig("jacobian_sparsity.png")
+    plt.show()
 
 def solve(
     ocp: dict[str, any],
@@ -79,6 +90,7 @@ def solve(
     tol: float = 1e-6,
     hessian_approximation: str = "exact",  # or "limited-memory",
     output_file: str = None,
+    pre_optim_plot: bool = False,
 ) -> tuple[np.ndarray, dict[str, any]]:
     """Solve the problem using IPOPT solver"""
 
@@ -99,6 +111,9 @@ def solve(
     # Online callback for live plotting
     grad_f_func = cas.Function("grad_f", [w], [cas.gradient(j, w)])
     grad_g_func = cas.Function("grad_g", [w], [cas.jacobian(g, w).T])
+
+    if pre_optim_plot:
+        plot_jacobian(g, w)
 
     online_callback = OnlineCallback(
         nx=w.shape[0],

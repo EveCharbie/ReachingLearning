@@ -122,6 +122,32 @@ def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
                 color="lightgrey",
             )
 
+def plot_single_bounds(ax, time_vector, variable_data, n_shooting, bound_name):
+    ax.fill_between(
+        time_vector,
+        np.ones((n_shooting,)) * np.min(variable_data["lb" + bound_name]) - 0.1,
+        variable_data["lb" + bound_name][0, :],
+        color="lightgrey",
+    )
+    ax.fill_between(
+        time_vector,
+        variable_data["ub" + bound_name][0, :],
+        np.ones((n_shooting,)) * (np.max(variable_data["ub" + bound_name]) + 0.1),
+        color="lightgrey",
+    )
+    ax.fill_between(
+        time_vector,
+        np.ones((n_shooting,)) * np.min(variable_data["lb" + bound_name]) - 0.1,
+        variable_data["lb" + bound_name][1, :],
+        color="lightgrey",
+    )
+    ax.fill_between(
+        time_vector,
+        variable_data["ub" + bound_name][1, :],
+        np.ones((n_shooting,)) * (np.max(variable_data["ub" + bound_name]) + 0.1),
+        color="lightgrey",
+    )
+
 def plot_controls(variable_data, socp_basic, save_path_socp_basic):
 
     n_shooting = socp_basic["n_shooting"]

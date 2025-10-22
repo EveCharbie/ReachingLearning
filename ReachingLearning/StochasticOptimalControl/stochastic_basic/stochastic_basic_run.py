@@ -51,7 +51,7 @@ def run_socp_basic(
         print(
             "\nSolving SOCP BASIC............................................................................................\n"
         )
-        w_opt, solver = solve(socp_basic)
+        w_opt, solver = solve(socp_basic, tol=tol, pre_optim_plot=False)
         variable_data = save_socp_basic(w_opt, socp_basic, save_path_socp_basic, tol, solver)
     else:
         ocp_print_tol = get_print_tol(tol)
