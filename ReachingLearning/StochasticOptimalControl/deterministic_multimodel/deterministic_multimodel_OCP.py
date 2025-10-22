@@ -115,7 +115,7 @@ def declare_dynamics_equation(model, x_single, u_single, noises_single, dt):
     """
 
     # TODO: CHECK THE NUMBER OF STEPS
-    n_steps = 4  # RK4 steps per interval
+    n_steps = 5  # RK4 steps per interval
     h = dt / n_steps
 
     # Dynamics

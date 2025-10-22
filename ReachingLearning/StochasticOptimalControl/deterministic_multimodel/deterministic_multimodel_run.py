@@ -45,7 +45,12 @@ def run_ocp_multimodel(
         print(
             "\nSolving OCP MULTIMODEL............................................................................................\n"
         )
-        w_opt, solver = solve(ocp_multimodel, tol=tol, pre_optim_plot=False)
+        w_opt, solver = solve(
+            ocp_multimodel,
+            tol=tol,
+            output_file=save_path_ocp_multimodel.replace(".pkl", "_ipopt_output.txt"),
+            pre_optim_plot=False,
+        )
         variable_data = save_ocp_multimodel(w_opt, ocp_multimodel, save_path_ocp_multimodel, tol, solver)
     else:
         ocp_print_tol = get_print_tol(tol)

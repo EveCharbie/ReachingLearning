@@ -33,7 +33,7 @@ final_time = 0.8
 n_shooting = int(final_time / dt)
 tol = 1e-6
 
-motor_noise_std = 0.05
+motor_noise_std = 0.05  # taus
 wPq_std = 3e-4
 wPqdot_std = 0.0024
 

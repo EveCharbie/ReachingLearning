@@ -79,7 +79,7 @@ def save_ocp_multimodel(
 
     # Get optimization variables
     q_opt, qdot_opt, muscle_opt, tau_opt = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, w_opt)
-    q0, qdot0, muscle_opt, tau0 = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, w0)
+    q0, qdot0, muscle0, tau0 = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, w0)
     lbq, lbqdot, lbmuscle, lbtau = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, lbw)
     ubq, ubqdot, ubmuscle, ubtau = get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, ubw)
     x_opt, u_opt = get_states_and_controls(

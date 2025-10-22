@@ -323,23 +323,24 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
                 )
 
         # Final point
-        x_prev = np.zeros((n_q * 2 * n_random))
+        x_last = np.zeros((n_q * 2 * n_random))
         for i_random in range(n_random):
             i_simulation_total = i_simulation * n_random + i_random
-            x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[i_simulation_total, :n_q, i_node + 1]
-            x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
+            x_last[i_random * n_q : (i_random + 1) * n_q] = x_simulated[i_simulation_total, :n_q, n_shooting]
+            x_last[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
                 i_simulation_total,
                 n_q:,
-                i_node + 1,
+                n_shooting,
             ]
         for i_random in range(n_random):
-            hand_pos_simulated[i_simulation_total, :, i_node + 1] = hand_position(
-                ocp_multimodel, x_prev[i_random * n_q : (i_random + 1) * n_q]
+            i_simulation_total = i_simulation * n_random + i_random
+            hand_pos_simulated[i_simulation_total, :, n_shooting] = hand_position(
+                ocp_multimodel, x_last[i_random * n_q : (i_random + 1) * n_q]
             )
-            hand_vel_simulated[i_simulation_total, :, i_node + 1] = hand_velocity(
+            hand_vel_simulated[i_simulation_total, :, n_shooting] = hand_velocity(
                 ocp_multimodel,
-                x_prev[i_random * n_q : (i_random + 1) * n_q],
-                x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q],
+                x_last[i_random * n_q : (i_random + 1) * n_q],
+                x_last[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q],
             )
 
     hand_initial_position, hand_final_position = get_target_position(ocp_multimodel["model"])

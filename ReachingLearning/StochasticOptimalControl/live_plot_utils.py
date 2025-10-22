@@ -235,17 +235,18 @@ class OnlineCallback(Callback):
         self.ipopt_axes[1].set_ylim(1e-10, g_max)
         self.ipopt_axes[2].set_ylim(np.min(self.inf_pr_sol), np.max(self.inf_pr_sol))
         self.ipopt_axes[3].set_ylim(
-            np.min(
-                np.array(
-                    [
-                        1e8,
-                        np.min(np.abs(self.inf_du_sol)),
-                        np.min(np.abs(self.grad_f_sol)),
-                        np.min(np.abs(self.grad_g_sol)),
-                        np.min(np.abs(self.lam_x_sol)),
-                    ]
-                )
-            ),
+            # np.min(
+            #     np.array(
+            #         [
+            #             1e8,
+            #             np.min(np.abs(self.inf_du_sol)),
+            #             np.min(np.abs(self.grad_f_sol)),
+            #             np.min(np.abs(self.grad_g_sol)),
+            #             np.min(np.abs(self.lam_x_sol)),
+            #         ]
+            #     )
+            # ),
+            1e-10,
             np.max(
                 np.array(
                     [
