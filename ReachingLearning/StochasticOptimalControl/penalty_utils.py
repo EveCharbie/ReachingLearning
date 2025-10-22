@@ -12,6 +12,7 @@ def get_end_effector_position_for_all_random(model, x_single) -> cas.MX:
         ee_pos[:, i_random] = model.end_effector_position(q_this_time)
     return ee_pos
 
+
 def get_end_effector_velocity_for_all_random(model, x_single) -> cas.MX:
     """
     Get the end-effector velocity for all random trials
@@ -23,6 +24,7 @@ def get_end_effector_velocity_for_all_random(model, x_single) -> cas.MX:
         qdot_this_time = x_single[model.q_offset + i_random * model.nb_q : model.q_offset + (i_random + 1) * model.nb_q]
         ee_vel[:, i_random] = model.end_effector_velocity(q_this_time, qdot_this_time)
     return ee_vel
+
 
 def get_end_effector_for_all_random(model, x_single) -> tuple[cas.MX, cas.MX]:
     """

@@ -11,7 +11,9 @@ from .StochasticOptimalControl.deterministic.deterministic_run import run_ocp
 
 # deterministic optimal control problem with multiple models
 from .StochasticOptimalControl.deterministic_multimodel.deterministic_multimodel_OCP import prepare_ocp_multimodel
-from .StochasticOptimalControl.deterministic_multimodel.deterministic_multimodel_arm_model import DeterministicMultiArmModel
+from .StochasticOptimalControl.deterministic_multimodel.deterministic_multimodel_arm_model import (
+    DeterministicMultiArmModel,
+)
 from .StochasticOptimalControl.deterministic_multimodel.deterministic_multimodel_save_results import save_ocp_multimodel
 from .StochasticOptimalControl.deterministic_multimodel.deterministic_multimodel_plot import plot_ocp_multimodel
 from .StochasticOptimalControl.deterministic_multimodel.deterministic_multimodel_animate import animate_ocp_multimodel

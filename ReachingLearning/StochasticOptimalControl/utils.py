@@ -73,6 +73,7 @@ def RK4(x_prev, u, dt, motor_noise, forward_dyn_func, n_steps=5):
         x_prev = x_prev + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
     return x_all
 
+
 def plot_jacobian(g: cas.MX, w: cas.MX):
     """Plot the Jacobian matrix using matplotlib"""
     sparsity = cas.jacobian_sparsity(g, w)
@@ -83,6 +84,7 @@ def plot_jacobian(g: cas.MX, w: cas.MX):
     plt.ylabel("Constraints")
     plt.savefig("jacobian_sparsity.png")
     plt.show()
+
 
 def solve(
     ocp: dict[str, any],

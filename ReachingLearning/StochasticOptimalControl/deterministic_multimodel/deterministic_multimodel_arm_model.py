@@ -48,7 +48,7 @@ class DeterministicMultiArmModel(ArmModel):
         """
 
         # Collect variables
-        tau = u_single[:self.nb_q]
+        tau = u_single[: self.nb_q]
         qddot = cas.MX.zeros(self.nb_q * self.n_random)
         noise_offset = 0
         for i_random in range(self.n_random):
@@ -58,9 +58,7 @@ class DeterministicMultiArmModel(ArmModel):
             noise_offset += self.n_noises
 
             # Collect tau components
-            torques_computed = self.collect_tau(
-                qdot_this_time, tau, motor_noise_this_time
-            )
+            torques_computed = self.collect_tau(qdot_this_time, tau, motor_noise_this_time)
 
             # Dynamics
             qddot[i_random * self.nb_q : (i_random + 1) * self.nb_q] = self.forward_dynamics(

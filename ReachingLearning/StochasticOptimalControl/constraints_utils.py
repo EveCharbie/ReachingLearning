@@ -2,7 +2,11 @@ import casadi as cas
 import numpy as np
 
 from .utils import ExampleType
-from .penalty_utils import get_end_effector_for_all_random, get_end_effector_position_for_all_random, get_end_effector_velocity_for_all_random
+from .penalty_utils import (
+    get_end_effector_for_all_random,
+    get_end_effector_position_for_all_random,
+    get_end_effector_velocity_for_all_random,
+)
 
 
 TARGET_START = np.array([0.00000000, 0.27420000])
@@ -76,6 +80,7 @@ def mean_reach_target(
 
     return g, lbg, ubg
 
+
 def mean_end_effector_velocity(model, x_single: cas.MX) -> list[cas.MX]:
     """
     Constraint to impose that the mean hand velocity is null at the end of the movement
@@ -84,6 +89,7 @@ def mean_end_effector_velocity(model, x_single: cas.MX) -> list[cas.MX]:
     ee_velo = get_end_effector_velocity_for_all_random(model, x_single)
     ee_pos_mean = cas.sum2(ee_velo) / nb_random
     return [ee_pos_mean]
+
 
 def ref_equals_mean_ref(model, x_single, u_single) -> list[cas.MX]:
     """
@@ -102,10 +108,11 @@ def ref_equals_mean_ref(model, x_single, u_single) -> list[cas.MX]:
     g = [ref_fb - cas.vertcat(ee_pos_mean, ee_vel_mean)]
     return g
 
+
 def residual_tau_equals_zero(model, u_single) -> list[cas.MX]:
     """
     Constraint to impose that the residual torque are null at convergence
     """
     offset = model.nb_muscles + model.nb_q * model.n_references + model.n_references
-    tau = u_single[offset: offset + model.nb_q]
+    tau = u_single[offset : offset + model.nb_q]
     return [tau]

@@ -27,7 +27,9 @@ def run_ocp_multimodel(
 
     # TODO: see if we want to add noise on the initial state
     print_motor_noise_std = "{:1.1e}".format(motor_noise_std).replace(".", "p")
-    save_path_ocp_multimodel = f"../results/StochasticOptimalControl/ocp_multimodel_{example_type.value}_{print_motor_noise_std}.pkl"
+    save_path_ocp_multimodel = (
+        f"../results/StochasticOptimalControl/ocp_multimodel_{example_type.value}_{print_motor_noise_std}.pkl"
+    )
 
     ocp_multimodel = prepare_ocp_multimodel(
         final_time=final_time,

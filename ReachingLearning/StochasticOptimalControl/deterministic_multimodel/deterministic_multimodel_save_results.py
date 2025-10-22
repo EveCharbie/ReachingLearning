@@ -29,13 +29,14 @@ def get_variables_from_vector(n_q, n_random, n_shooting, vector):
 
     return q_opt, qdot_opt, tau_opt
 
+
 def get_states_and_controls(
-        n_q,
-        n_random,
-        n_shooting,
-        q_opt,
-        qdot_opt,
-        tau_opt,
+    n_q,
+    n_random,
+    n_shooting,
+    q_opt,
+    qdot_opt,
+    tau_opt,
 ):
     # Get optimization variables
     x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
@@ -43,12 +44,13 @@ def get_states_and_controls(
 
     for i_node in range(n_shooting + 1):
         x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
-        x_opt[n_q * n_random:, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
+        x_opt[n_q * n_random :, i_node] = qdot_opt[:, :, i_node].flatten(order="F")
 
         if i_node < n_shooting:
             u_opt[:, i_node] = tau_opt[:, i_node].flatten()
 
     return x_opt, u_opt
+
 
 def save_ocp_multimodel(
     w_opt: np.ndarray,

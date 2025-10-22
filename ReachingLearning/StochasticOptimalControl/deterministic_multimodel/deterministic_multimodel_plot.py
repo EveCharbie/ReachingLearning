@@ -18,6 +18,7 @@ def hand_velocity(ocp_multimodel, q, qdot):
     hand_velo = get_dm_value(ocp_multimodel["model"].end_effector_velocity, [q, qdot])
     return np.reshape(hand_velo[:2], (2,))
 
+
 def plot_state_bounds(axs, time_vector, variable_data, n_shooting):
     axs[0, 0].fill_between(
         time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, 0, :], color="lightgrey"
@@ -50,6 +51,7 @@ def plot_state_bounds(axs, time_vector, variable_data, n_shooting):
         time_vector, variable_data["ubqdot"][1, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
     )
 
+
 def plot_states(variable_data, ocp_multimodel, save_path_ocp_multimodel):
 
     n_shooting = ocp_multimodel["n_shooting"]
@@ -74,8 +76,12 @@ def plot_states(variable_data, ocp_multimodel, save_path_ocp_multimodel):
 
     # Optimization variables
     for i_random in range(ocp_multimodel["model"].n_random):
-        axs[0, 0].plot(time_vector, variable_data["q_opt"][0, i_random, :], ".", markersize=1, color=ocp_multimodel_color)
-        axs[0, 1].plot(time_vector, variable_data["q_opt"][1, i_random, :], ".", markersize=1, color=ocp_multimodel_color)
+        axs[0, 0].plot(
+            time_vector, variable_data["q_opt"][0, i_random, :], ".", markersize=1, color=ocp_multimodel_color
+        )
+        axs[0, 1].plot(
+            time_vector, variable_data["q_opt"][1, i_random, :], ".", markersize=1, color=ocp_multimodel_color
+        )
         axs[1, 0].plot(
             time_vector, variable_data["qdot_opt"][0, i_random, :], ".", markersize=1, color=ocp_multimodel_color
         )
@@ -92,10 +98,18 @@ def plot_states(variable_data, ocp_multimodel, save_path_ocp_multimodel):
             time_vector, variable_data["q_integrated"][1, i_random, :], "-", linewidth=0.5, color=ocp_multimodel_color
         )
         axs[1, 0].plot(
-            time_vector, variable_data["qdot_integrated"][0, i_random, :], "-", linewidth=0.5, color=ocp_multimodel_color
+            time_vector,
+            variable_data["qdot_integrated"][0, i_random, :],
+            "-",
+            linewidth=0.5,
+            color=ocp_multimodel_color,
         )
         axs[1, 1].plot(
-            time_vector, variable_data["qdot_integrated"][1, i_random, :], "-", linewidth=0.5, color=ocp_multimodel_color
+            time_vector,
+            variable_data["qdot_integrated"][1, i_random, :],
+            "-",
+            linewidth=0.5,
+            color=ocp_multimodel_color,
         )
 
     # Bounds
@@ -105,6 +119,7 @@ def plot_states(variable_data, ocp_multimodel, save_path_ocp_multimodel):
     plt.savefig(save_path_fig)
     plt.show()
     # plt.close()
+
 
 def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
     for i_ax in range(2):
@@ -120,7 +135,8 @@ def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
             np.ones((n_shooting,)) * 100,
             color="lightgrey",
         )
-            
+
+
 def plot_single_bounds(ax, time_vector, variable_data, n_shooting, bound_name):
     ax.fill_between(
         time_vector,
@@ -146,6 +162,7 @@ def plot_single_bounds(ax, time_vector, variable_data, n_shooting, bound_name):
         np.ones((n_shooting,)) * (np.max(variable_data["ub" + bound_name]) + 0.1),
         color="lightgrey",
     )
+
 
 def plot_controls(variable_data, ocp_multimodel, save_path_ocp_multimodel):
 
@@ -186,13 +203,13 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
     n_q = ocp_multimodel["model"].nb_q
     n_noises = ocp_multimodel["model"].nb_q * n_random
     noise_magnitude = np.array(
-                np.array(ocp_multimodel["model"].motor_noise_magnitude)
-                .reshape(
-                    -1,
-                )
-                .tolist()
-                * n_random
-            )
+        np.array(ocp_multimodel["model"].motor_noise_magnitude)
+        .reshape(
+            -1,
+        )
+        .tolist()
+        * n_random
+    )
 
     # Reintegrate the solution with noise
     x_simulated = np.zeros((n_simulations * n_random, 2 * n_q, n_shooting + 1))
@@ -203,9 +220,7 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
         np.random.seed(i_simulation)
         for i_random in range(n_random):
             i_simulation_total = i_simulation * n_random + i_random
-            x_simulated[i_simulation_total, :n_q, 0] = variable_data["x_opt"][
-                i_random * n_q : (i_random + 1) * n_q, 0
-            ]
+            x_simulated[i_simulation_total, :n_q, 0] = variable_data["x_opt"][i_random * n_q : (i_random + 1) * n_q, 0]
             x_simulated[i_simulation_total, n_q:, 0] = variable_data["x_opt"][
                 n_q * n_random + i_random * n_q : n_q * n_random + (i_random + 1) * n_q, 0
             ]
@@ -213,9 +228,7 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
             x_prev = np.zeros((n_q * 2 * n_random))
             for i_random in range(n_random):
                 i_simulation_total = i_simulation * n_random + i_random
-                x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[
-                    i_simulation_total, :n_q, i_node
-                ]
+                x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[i_simulation_total, :n_q, i_node]
                 x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
                     i_simulation_total,
                     n_q:,
@@ -246,9 +259,7 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
         x_prev = np.zeros((n_q * 2 * n_random))
         for i_random in range(n_random):
             i_simulation_total = i_simulation * n_random + i_random
-            x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[
-                i_simulation_total, :n_q, i_node + 1
-            ]
+            x_prev[i_random * n_q : (i_random + 1) * n_q] = x_simulated[i_simulation_total, :n_q, i_node + 1]
             x_prev[q_offset + i_random * n_q : q_offset + (i_random + 1) * n_q] = x_simulated[
                 i_simulation_total,
                 n_q:,

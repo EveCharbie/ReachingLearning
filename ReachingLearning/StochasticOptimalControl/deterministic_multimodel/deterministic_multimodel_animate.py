@@ -37,7 +37,7 @@ def animate_ocp_multimodel(
     # )
 
     # Add the kinematics
-    viz.add_animated_model(model, q_opt)  #, muscle_activations_intensity=pyoemg)
+    viz.add_animated_model(model, q_opt)  # , muscle_activations_intensity=pyoemg)
 
     # Play
     viz.rerun("OCP solution")

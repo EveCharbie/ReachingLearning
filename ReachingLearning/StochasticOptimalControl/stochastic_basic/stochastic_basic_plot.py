@@ -18,6 +18,7 @@ def hand_velocity(socp_basic, q, qdot):
     hand_velo = get_dm_value(socp_basic["model"].end_effector_velocity, [q, qdot])
     return np.reshape(hand_velo[:2], (2,))
 
+
 def plot_state_bounds(axs, time_vector, variable_data, n_shooting):
     axs[0, 0].fill_between(
         time_vector, np.ones((n_shooting + 1,)) * -10, variable_data["lbq"][0, 0, :], color="lightgrey"
@@ -49,6 +50,7 @@ def plot_state_bounds(axs, time_vector, variable_data, n_shooting):
     axs[1, 1].fill_between(
         time_vector, variable_data["ubqdot"][1, 0, :], np.ones((n_shooting + 1,)) * 100, color="lightgrey"
     )
+
 
 def plot_states(variable_data, socp_basic, save_path_socp_basic):
 
@@ -106,6 +108,7 @@ def plot_states(variable_data, socp_basic, save_path_socp_basic):
     plt.show()
     # plt.close()
 
+
 def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
     for i_ax in range(2):
         for j_ax in range(3):
@@ -121,6 +124,7 @@ def plot_control_bounds(axs, time_vector, variable_data, n_shooting):
                 np.ones((n_shooting,)) * 1.1,
                 color="lightgrey",
             )
+
 
 def plot_single_bounds(ax, time_vector, variable_data, n_shooting, bound_name):
     ax.fill_between(
@@ -147,6 +151,7 @@ def plot_single_bounds(ax, time_vector, variable_data, n_shooting, bound_name):
         np.ones((n_shooting,)) * (np.max(variable_data["ub" + bound_name]) + 0.1),
         color="lightgrey",
     )
+
 
 def plot_controls(variable_data, socp_basic, save_path_socp_basic):
 

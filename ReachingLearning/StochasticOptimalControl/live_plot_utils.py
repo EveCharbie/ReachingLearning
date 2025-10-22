@@ -1,5 +1,6 @@
 import matplotlib
-matplotlib.use('TkAgg')  # or 'Qt5Agg'
+
+matplotlib.use("TkAgg")  # or 'Qt5Agg'
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 import numpy as np
@@ -14,7 +15,7 @@ class OnlineCallback(Callback):
     CasADi interface of Ipopt callbacks
     """
 
-    def __init__(self, nx :int, ng: int, grad_f_func: Function, grad_g_func: Function, g_names: list[str], ocp):
+    def __init__(self, nx: int, ng: int, grad_f_func: Function, grad_g_func: Function, g_names: list[str], ocp):
         """
         Parameters
         ----------
@@ -37,7 +38,9 @@ class OnlineCallback(Callback):
 
         self.queue = mp.Queue()
         self.plotter = ProcessPlotter(self)
-        self.plot_process = mp.Process(target=self.plotter, args=(self.queue, {"lbw": ocp["lbw"], "ubw": ocp["ubw"]}), daemon=True)
+        self.plot_process = mp.Process(
+            target=self.plotter, args=(self.queue, {"lbw": ocp["lbw"], "ubw": ocp["ubw"]}), daemon=True
+        )
         self.plot_process.start()
 
     def close(self):
@@ -160,7 +163,9 @@ class OnlineCallback(Callback):
 
         # Add all g plots at the end
         for i_g, name in enumerate(self.unique_g_names):
-            plot = axs[1].plot([0], [1], linestyle="-", marker=".", label=name, color=colors(i_g / len(self.unique_g_names)))
+            plot = axs[1].plot(
+                [0], [1], linestyle="-", marker=".", label=name, color=colors(i_g / len(self.unique_g_names))
+            )
             plots.append(plot[0])
         axs[1].legend()
         axs[1].grid(True)
@@ -259,7 +264,6 @@ class OnlineCallback(Callback):
         for i in range(4):
             self.ipopt_axes[i].set_xlim(0, len(self.f_sol))
 
-
     def create_variable_plot(self, lbx, ubx):
         """
         This function creates the plots for the ipopt output: f, g, inf_pr, inf_du.
@@ -341,41 +345,59 @@ class OnlineCallback(Callback):
         axs[2, 1].set_title("References (ref_fb)")
         axs[2, 2].set_title("Joint Torques (tau)")
 
-        plot_muscle2 = axs[0, 0].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
-        plot_muscle0 = axs[0, 1].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
-        plot_muscle4 = axs[0, 2].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
-        plot_muscle3 = axs[1, 0].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
-        plot_muscle1 = axs[1, 1].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
-        plot_muscle5 = axs[1, 2].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k")[0]
+        plot_muscle2 = axs[0, 0].plot(
+            self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k"
+        )[0]
+        plot_muscle0 = axs[0, 1].plot(
+            self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k"
+        )[0]
+        plot_muscle4 = axs[0, 2].plot(
+            self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k"
+        )[0]
+        plot_muscle3 = axs[1, 0].plot(
+            self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k"
+        )[0]
+        plot_muscle1 = axs[1, 1].plot(
+            self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k"
+        )[0]
+        plot_muscle5 = axs[1, 2].plot(
+            self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color="k"
+        )[0]
         muscle_plots = [
-                    plot_muscle2,
-                    plot_muscle0,
-                    plot_muscle4,
-                    plot_muscle3,
-                    plot_muscle1,
-                    plot_muscle5,
-                ]
+            plot_muscle2,
+            plot_muscle0,
+            plot_muscle4,
+            plot_muscle3,
+            plot_muscle1,
+            plot_muscle5,
+        ]
 
         # Gain plots
         colors = get_cmap("viridis")
         plot_gain = []
         for i_gain in range(self.model.nb_q * self.model.n_references):
             color = colors(i_gain / (self.model.nb_q * self.model.n_references))
-            plot_gain += axs[2, 0].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color)
+            plot_gain += axs[2, 0].plot(
+                self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color
+            )
 
         # Refs plots
         colors = get_cmap("viridis")
         plot_refs = []
         for i_reference in range(self.model.n_references):
             color = colors(i_reference / (self.model.n_references))
-            plot_refs += axs[2, 1].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color)
+            plot_refs += axs[2, 1].plot(
+                self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color
+            )
 
         # Refs plots
         colors = get_cmap("viridis")
         plot_tau = []
         for i_tau in range(self.model.nb_q):
             color = colors(i_tau / (self.model.nb_q))
-            plot_tau += axs[2, 2].plot(self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color)
+            plot_tau += axs[2, 2].plot(
+                self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color
+            )
 
         # Bounds
         plot_control_bounds(axs, self.time_vector[:-1], fake_variable_data, self.model.n_shooting)
@@ -386,13 +408,19 @@ class OnlineCallback(Callback):
         axs[1, 1].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
         axs[1, 2].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
 
-        plot_single_bounds(axs[2, 0], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="k_fb")
+        plot_single_bounds(
+            axs[2, 0], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="k_fb"
+        )
         axs[2, 0].set_ylim(np.min(lbk_fb) - 0.1, np.max(ubk_fb) + 0.1)
 
-        plot_single_bounds(axs[2, 1], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="ref_fb")
+        plot_single_bounds(
+            axs[2, 1], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="ref_fb"
+        )
         axs[2, 1].set_ylim(np.min(lbref_fb) - 0.1, np.max(ubref_fb) + 0.1)
 
-        plot_single_bounds(axs[2, 2], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="tau")
+        plot_single_bounds(
+            axs[2, 2], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="tau"
+        )
         axs[2, 2].set_ylim(np.min(lbtau) - 0.1, np.max(ubtau) + 0.1)
 
         controls_plots = muscle_plots + plot_gain + plot_refs + plot_tau
@@ -465,6 +493,7 @@ class OnlineCallback(Callback):
             args_dict[s] = arg[i]
         send(args_dict)
         return [0]
+
 
 class ProcessPlotter(object):
 

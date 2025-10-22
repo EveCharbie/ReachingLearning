@@ -160,9 +160,7 @@ def prepare_ocp_multimodel(
 
     # Variables
     x, u, w, lbw, ubw, w0 = declare_variables(n_shooting, n_random)
-    noises_numerical, noises_single = declare_noises(
-        n_shooting, n_random, model.motor_noise_magnitude
-    )
+    noises_numerical, noises_single = declare_noises(n_shooting, n_random, model.motor_noise_magnitude)
 
     # Start with an empty NLP
     j = 0
@@ -195,7 +193,7 @@ def prepare_ocp_multimodel(
 
     # Objectives
     for i_node in range(n_shooting):
-        j += cas.sum1(u[i_node]**2) * dt / 2
+        j += cas.sum1(u[i_node] ** 2) * dt / 2
     j += reach_target_consistently(model, x[-1], example_type)
 
     # Terminal constraint

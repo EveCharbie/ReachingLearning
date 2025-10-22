@@ -49,13 +49,15 @@ def minimize_gains(model, u_single):
     k_fb = u_single[model.nb_muscles : model.nb_muscles + model.nb_q * model.n_references]
     return cas.sum1(k_fb**2)
 
+
 def minimize_muscle_activations(model, u_single):
     muscles = u_single[: model.nb_muscles]
-    return cas.sum1(muscles ** 2)
+    return cas.sum1(muscles**2)
+
 
 def minimize_residual_tau(model, u_single):
     muscle_offset = model.nb_muscles
     k_fb_offset = muscle_offset + model.nb_q * model.n_references
     ref_fb_offset = k_fb_offset + model.n_references
-    muscles = u_single[ref_fb_offset: ref_fb_offset + model.nb_q]
-    return cas.sum1(muscles ** 2)
+    muscles = u_single[ref_fb_offset : ref_fb_offset + model.nb_q]
+    return cas.sum1(muscles**2)
