@@ -76,4 +76,5 @@ def run_ocp_multimodel(
             final_time,
             n_shooting,
             np.nanmean(variable_data["q_opt"], axis=1),
+            variable_data["muscle_opt"],
         )

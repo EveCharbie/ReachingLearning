@@ -6,7 +6,7 @@ def animate_ocp_multimodel(
     final_time,
     n_shooting,
     q_opt,
-    # muscles_opt,
+    muscles_opt,
 ):
 
     # Add the model
@@ -28,16 +28,16 @@ def animate_ocp_multimodel(
     t_span = np.linspace(0, final_time, n_shooting + 1)
     viz = pyorerun.PhaseRerun(t_span)
 
-    # # Add experimental emg
-    # pyoemg = pyorerun.PyoMuscles(
-    #     data=np.hstack((muscles_opt, np.zeros((6, 1)))),
-    #     muscle_names=list(model.muscle_names),
-    #     mvc=np.ones((model.nb_muscles,)),
-    #     colormap="viridis",
-    # )
+    # Add experimental emg
+    pyoemg = pyorerun.PyoMuscles(
+        data=np.hstack((muscles_opt, np.zeros((6, 1)))),
+        muscle_names=list(model.muscle_names),
+        mvc=np.ones((model.nb_muscles,)),
+        colormap="viridis",
+    )
 
     # Add the kinematics
-    viz.add_animated_model(model, q_opt)  # , muscle_activations_intensity=pyoemg)
+    viz.add_animated_model(model, q_opt, muscle_activations_intensity=pyoemg)
 
     # Play
     viz.rerun("OCP solution")

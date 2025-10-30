@@ -51,7 +51,12 @@ def run_socp_basic(
         print(
             "\nSolving SOCP BASIC............................................................................................\n"
         )
-        w_opt, solver = solve(socp_basic, tol=tol, pre_optim_plot=False)
+        w_opt, solver = solve(
+            socp_basic,
+            tol=tol,
+            output_file=save_path_socp_basic.replace(".pkl", "_ipopt_output.txt"),
+            pre_optim_plot=False,
+        )
         variable_data = save_socp_basic(w_opt, socp_basic, save_path_socp_basic, tol, solver)
     else:
         ocp_print_tol = get_print_tol(tol)
@@ -68,8 +73,6 @@ def run_socp_basic(
         plot_socp_basic(
             variable_data,
             socp_basic,
-            motor_noise_std,
-            force_field_magnitude,
             save_path_socp_basic,
             n_simulations=int(round(n_simulations / n_random)),
         )

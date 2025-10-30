@@ -29,7 +29,7 @@ def declare_variables(
     Declare all variables (states and controls) and their initial guess
         - q: shoulder and elbow linear interpolation
         - qdot: shoulder and elbow 0
-        - muscle activations: all 1e-6
+        - muscle activations: all 0.1
         - feedback gains: all 0.1
         - feedback_reference: hand position at initial guess
         - residual tau: all 0
@@ -39,7 +39,7 @@ def declare_variables(
         - muscle activations: all in [1e-6, 1]
         - feedback gains: all in [-10, 10]
         - feedback_reference: all in [-1, 1]
-        - residual tau: all in [-50, 50]
+        - residual tau: all in [-10, 10]
     """
     n_muscles = 6
     n_q = 2
@@ -86,8 +86,8 @@ def declare_variables(
             # Muscle activations
             muscle_i = cas.MX.sym(f"muscle_{i_node}", n_muscles)
             lbw += [1e-6] * n_muscles
-            ubw += [1] * n_muscles
-            w0 += [1e-6] * n_muscles
+            ubw += [1.0] * n_muscles
+            w0 += [0.1] * n_muscles
             # Feedback gains
             k_fb_i = cas.MX.sym(f"k_fb_{i_node}", n_q * n_references)
             lbw += [-10] * (n_q * n_references)
@@ -100,8 +100,8 @@ def declare_variables(
             w0 += [ref_trajectory_init[:, i_node].flatten().tolist()]
             # Residual tau
             tau_i = cas.MX.sym(f"tau_{i_node}", n_q)
-            lbw += [-50] * n_q
-            ubw += [50] * n_q
+            lbw += [-10] * n_q
+            ubw += [10] * n_q
             w0 += [0, 0]
 
             u += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i, tau_i)]
@@ -111,21 +111,21 @@ def declare_variables(
 
 def declare_noises(n_shooting, n_random, motor_noise_magnitude, sensory_noise_magnitude):
     """
-    Motor noise: 6 muscles
+    Motor noise: 2 taus
     Sensory noise: 2 hand position + 2 hand velocity
     """
-    n_muscles = 6
+    n_q = 2
     n_references = 4
 
     noises_numerical = []
     for i_shooting in range(n_shooting):
-        this_motor_noise_vector = np.zeros((n_muscles * n_random,))
+        this_motor_noise_vector = np.zeros((n_q * n_random,))
         this_sensory_noise_vector = np.zeros((n_references * n_random,))
         for i_random in range(n_random):
-            this_motor_noise_vector[n_muscles * i_random : n_muscles * (i_random + 1)] = np.random.normal(
-                loc=np.zeros((n_muscles,)),
-                scale=np.reshape(np.array(motor_noise_magnitude), (n_muscles,)),
-                size=n_muscles,
+            this_motor_noise_vector[n_q * i_random : n_q * (i_random + 1)] = np.random.normal(
+                loc=np.zeros((n_q,)),
+                scale=np.reshape(np.array(motor_noise_magnitude), (n_q,)),
+                size=n_q,
             )
             this_sensory_noise_vector[n_references * i_random : n_references * (i_random + 1)] = np.random.normal(
                 loc=np.zeros((n_references,)),
@@ -133,7 +133,7 @@ def declare_noises(n_shooting, n_random, motor_noise_magnitude, sensory_noise_ma
                 size=n_references,
             )
         noises_numerical += [cas.vertcat(this_motor_noise_vector, this_sensory_noise_vector)]
-    noises_single = cas.MX.sym("noises_single", (n_muscles + n_references) * n_random)
+    noises_single = cas.MX.sym("noises_single", (n_q + n_references) * n_random)
     return noises_numerical, noises_single
 
 
@@ -189,7 +189,6 @@ def prepare_socp_basic(
         motor_noise_std=motor_noise_std,
         wPq_std=wPq_std,
         wPqdot_std=wPqdot_std,
-        dt=dt,
         force_field_magnitude=force_field_magnitude,
         n_random=n_random,
         n_shooting=n_shooting,
@@ -234,24 +233,24 @@ def prepare_socp_basic(
     for i_node in range(n_shooting):
         j += minimize_stochastic_efforts(model, x[i_node], u[i_node], noises_numerical[i_node]) * dt / 2
         j += minimize_muscle_activations(model, u[i_node]) * dt / 2
-        j += minimize_residual_tau(model, u[i_node]) * dt / 2
+        j += minimize_residual_tau(model, u[i_node]) * 10 * dt / 2
         j += minimize_gains(model, u[i_node]) * dt / 10  # Regularization
     j += reach_target_consistently(model, x[-1], example_type)
 
-    # Constraints
-    for i_node in range(n_shooting):
-        # Reference equality constraint
-        reference_constraint = ref_equals_mean_ref(model, x[i_node], u[i_node])
-        g += reference_constraint
-        lbg += [0] * model.n_references
-        ubg += [0] * model.n_references
-        g_names += [f"ref_equals_mean_ref"] * model.n_references
-
-        # # Null torque constraint
-        # g += residual_tau_equals_zero(model, u[i_node])
-        # lbg += [0] * model.nb_q
-        # ubg += [0] * model.nb_q
-        # g_names += [f"residual_tau_equals_zero"] * model.nb_q
+    # # Constraints
+    # for i_node in range(n_shooting):
+    #     # Reference equality constraint
+    #     reference_constraint = ref_equals_mean_ref(model, x[i_node], u[i_node])
+    #     g += reference_constraint
+    #     lbg += [0] * model.n_references
+    #     ubg += [0] * model.n_references
+    #     g_names += [f"ref_equals_mean_ref"] * model.n_references
+    #
+    #     # # Null torque constraint
+    #     # g += residual_tau_equals_zero(model, u[i_node])
+    #     # lbg += [0] * model.nb_q
+    #     # ubg += [0] * model.nb_q
+    #     # g_names += [f"residual_tau_equals_zero"] * model.nb_q
 
     # Terminal constraint
     g_target, lbg_target, ubg_target = mean_reach_target(model, x[-1], example_type)

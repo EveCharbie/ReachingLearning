@@ -269,7 +269,7 @@ class OnlineCallback(Callback):
         """
         This function creates the plots for the ipopt output: f, g, inf_pr, inf_du.
         """
-        from .stochastic_basic.stochastic_basic_plot import plot_state_bounds, plot_control_bounds, plot_single_bounds
+        from .stochastic_basic.stochastic_basic_plot import plot_state_bounds, plot_muscle_bounds, plot_single_bounds
 
         # Bounds
         lbq, lbqdot, lbmuscle, lbk_fb, lbref_fb, lbtau = get_variables_from_vector(
@@ -401,7 +401,7 @@ class OnlineCallback(Callback):
             )
 
         # Bounds
-        plot_control_bounds(axs, self.time_vector[:-1], fake_variable_data, self.model.n_shooting)
+        plot_muscle_bounds(axs, self.time_vector[:-1], fake_variable_data, self.model.n_shooting)
         axs[0, 0].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
         axs[0, 1].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
         axs[0, 2].set_ylim(np.min(lbmuscle) - 0.1, np.max(ubmuscle) + 0.1)
@@ -519,7 +519,7 @@ class ProcessPlotter(object):
         """
         self.pipe = pipe
         self.online_callback.create_ipopt_output_plot()
-        # self.online_callback.create_variable_plot(options["lbw"], options["ubw"])
+        self.online_callback.create_variable_plot(options["lbw"], options["ubw"])
         timer = self.online_callback.ipopt_fig.canvas.new_timer(interval=100)
         timer.add_callback(self.callback)
         timer.start()
@@ -537,7 +537,7 @@ class ProcessPlotter(object):
         while not self.pipe.empty():
             args = self.pipe.get()
             self.online_callback.update_ipopt_output_plot(args)
-            # self.online_callback.update_variable_plot(args)
+            self.online_callback.update_variable_plot(args)
 
         nb_iter = len(self.online_callback.ipopt_axes[0].lines[0].get_xdata())
         self.online_callback.ipopt_fig.canvas.draw()
@@ -545,13 +545,13 @@ class ProcessPlotter(object):
             self.online_callback.ipopt_fig.savefig(f"ipopt_output_{nb_iter}.png")
         self.online_callback.ipopt_fig.canvas.flush_events()
 
-        # self.online_callback.states_fig.canvas.draw()
-        # if nb_iter % 1000 == 0:
-        #     self.online_callback.states_fig.savefig(f"states_output_{nb_iter}.png")
-        # self.online_callback.states_fig.canvas.flush_events()
-        #
-        # self.online_callback.controls_fig.canvas.draw()
-        # if nb_iter % 1000 == 0:
-        #     self.online_callback.controls_fig.savefig(f"controls_output_{nb_iter}.png")
-        # self.online_callback.controls_fig.canvas.flush_events()
+        self.online_callback.states_fig.canvas.draw()
+        if nb_iter % 1000 == 0:
+            self.online_callback.states_fig.savefig(f"states_output_{nb_iter}.png")
+        self.online_callback.states_fig.canvas.flush_events()
+
+        self.online_callback.controls_fig.canvas.draw()
+        if nb_iter % 1000 == 0:
+            self.online_callback.controls_fig.savefig(f"controls_output_{nb_iter}.png")
+        self.online_callback.controls_fig.canvas.flush_events()
         return True

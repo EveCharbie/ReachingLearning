@@ -10,7 +10,6 @@ class StochasticBasicArmModel(ArmModel):
         motor_noise_std: float,
         wPq_std: float,
         wPqdot_std: float,
-        dt: float,
         force_field_magnitude: float = 0,
         n_random: int = 20,
         n_shooting: int = 50,
@@ -25,16 +24,16 @@ class StochasticBasicArmModel(ArmModel):
         self.n_shooting = n_shooting
         self.force_field_magnitude = force_field_magnitude
         self.n_references = 4  # 2 hand position + 2 hand velocity
-        self.n_noises = self.n_references + self.nb_muscles
+        self.n_noises = self.n_references + self.nb_q
 
-        motor_noise_magnitude = cas.DM(np.array([motor_noise_std**2 / dt] * self.nb_muscles))
+        motor_noise_magnitude = cas.DM(np.array([motor_noise_std] * self.nb_q))
         hand_sensory_noise_magnitude = cas.DM(
             np.array(
                 [
-                    wPq_std**2 / dt,  # Hand position
-                    wPq_std**2 / dt,
-                    wPqdot_std**2 / dt,  # Hand velocity
-                    wPqdot_std**2 / dt,
+                    wPq_std,  # Hand position
+                    wPq_std,
+                    wPqdot_std,  # Hand velocity
+                    wPqdot_std,
                 ]
             )
         )
@@ -51,15 +50,19 @@ class StochasticBasicArmModel(ArmModel):
         ee_vel = self.end_effector_velocity(q, qdot)
         return cas.vertcat(ee_pos, ee_vel) + sensory_noise
 
-    def collect_tau(self, q, qdot, muscle_activations, k_fb, ref_fb, tau, sensory_noise):
+    def collect_tau(self, q, qdot, muscle_activations, k_fb, ref_fb, tau, motor_noise_this_time, sensory_noise_this_time):
         """
         Collect all tau components
+
+        Note: that the following line compromises convergence :(
+        `muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations + motor_noise_this_time)`
+        So we add the noise on tau instead
         """
         muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations)
         tau_force_field = self.force_field(q, self.force_field_magnitude)
-        tau_fb = k_fb @ (self.sensory_reference(q, qdot, sensory_noise) - ref_fb)
+        tau_fb = k_fb @ (self.sensory_reference(q, qdot, sensory_noise_this_time) - ref_fb)
         tau_friction = -self.friction_coefficients @ qdot
-        torques_computed = muscles_tau + tau_force_field + tau_fb + tau_friction + tau
+        torques_computed = muscles_tau + tau_force_field + tau_fb + tau_friction + tau + motor_noise_this_time
         return torques_computed
 
     def dynamics(
@@ -77,12 +80,12 @@ class StochasticBasicArmModel(ArmModel):
         - ref_fb (4, n_shooting)
         - tau (2, n_shooting)
         Noises:
-        - motor_noise (6 x n_random, n_shooting)
+        - motor_noise (2 x n_random, n_shooting)
         - sensory_noise (4 x n_random, n_shooting)
         """
 
         # Collect variables
-        muscle = u_single[: self.nb_muscles]
+        muscle_activations = u_single[: self.nb_muscles]
         muscle_offset = self.nb_muscles
         k_fb = self.reshape_vector_to_matrix(
             u_single[muscle_offset : muscle_offset + self.n_references * self.nb_q], self.matrix_shape_k_fb
@@ -96,19 +99,23 @@ class StochasticBasicArmModel(ArmModel):
         for i_random in range(self.n_random):
             q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
             qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
-            motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_muscles]
+            motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_q]
+            noise_offset += self.nb_q
             sensory_noise_this_time = noise_single[
-                noise_offset + self.nb_muscles : noise_offset + self.nb_muscles + self.n_references
+                noise_offset : noise_offset + self.n_references
             ]
-            noise_offset += self.n_noises
-
-            # Get the real muscle activations (noised and avoid negative values)
-            noised_muscle_activations = muscle + motor_noise_this_time
-            noised_muscle_activations = cas.fabs(noised_muscle_activations)  # In [0, inf[ instead of [1e-6, 1]
+            noise_offset += self.n_references
 
             # Collect tau components
             torques_computed = self.collect_tau(
-                q_this_time, qdot_this_time, noised_muscle_activations, k_fb, ref_fb, tau, sensory_noise_this_time
+                q_this_time,
+                qdot_this_time,
+                muscle_activations,
+                k_fb,
+                ref_fb,
+                tau,
+                motor_noise_this_time,
+                sensory_noise_this_time
             )
 
             # Dynamics

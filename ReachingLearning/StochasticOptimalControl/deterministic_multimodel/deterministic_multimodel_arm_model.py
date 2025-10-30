@@ -20,7 +20,6 @@ class DeterministicMultiArmModel(ArmModel):
         self.n_shooting = n_shooting
         self.n_noises = self.nb_q
 
-        # TODO: CHECK THE MOTOR NOISE MAGNITUDE (* dt)
         motor_noise_magnitude = cas.DM(np.array([motor_noise_std] * self.nb_q))
         self.motor_noise_magnitude = motor_noise_magnitude
 

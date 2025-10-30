@@ -132,7 +132,7 @@ def solve(
         "ipopt.tol": tol,
         "ipopt.linear_solver": "ma97",
         "ipopt.hessian_approximation": hessian_approximation,
-        "ipopt.output_file": output_file,
+        # "ipopt.output_file": output_file,
         # "expand": True,
         "iteration_callback": online_callback,
     }
