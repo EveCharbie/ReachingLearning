@@ -1,7 +1,7 @@
 import casadi as cas
 import numpy as np
 
-from ..utils import ExampleType
+from ..utils import ExampleType, get_dm_value
 from ..constraints_utils import (
     mean_start_on_target,
     mean_reach_target,
@@ -22,8 +22,7 @@ from .stochastic_basic_arm_model import StochasticBasicArmModel
 
 
 def declare_variables(
-    n_shooting: int,
-    n_random: int,
+    model: StochasticBasicArmModel,
 ) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
     """
     Declare all variables (states and controls) and their initial guess
@@ -41,9 +40,11 @@ def declare_variables(
         - feedback_reference: all in [-1, 1]
         - residual tau: all in [-10, 10]
     """
-    n_muscles = 6
-    n_q = 2
-    n_references = 4  # 2 hand position + 2 hand velocity
+    n_muscles = model.nb_muscles
+    n_q = model.nb_q
+    n_references = model.n_references# 2 hand position + 2 hand velocity
+    n_random = model.n_random
+    n_shooting = model.n_shooting
 
     # Optimized in Tom's version
     shoulder_pos_initial = 0.349065850398866
@@ -54,10 +55,6 @@ def declare_variables(
     joint_angles_init = np.zeros((2, n_shooting + 1))
     joint_angles_init[0, :] = np.linspace(shoulder_pos_initial, shoulder_pos_final, n_shooting + 1)  # Shoulder
     joint_angles_init[1, :] = np.linspace(elbow_pos_initial, elbow_pos_final, n_shooting + 1)  # Elbow
-
-    ref_trajectory_init = np.zeros((4, n_shooting + 1))
-    ref_trajectory_init[0, :] = np.linspace(TARGET_START[0], TARGET_END[0], n_shooting + 1)  # Hand X position
-    ref_trajectory_init[1, :] = np.linspace(TARGET_START[1], TARGET_END[1], n_shooting + 1)  # Hand Y position
 
     x = []
     u = []
@@ -97,7 +94,16 @@ def declare_variables(
             ref_fb_i = cas.MX.sym(f"ref_fb_{i_node}", n_references)
             lbw += [-1] * n_references
             ubw += [1] * n_references
-            w0 += [ref_trajectory_init[:, i_node].flatten().tolist()]
+            ref_trajectory_init = get_dm_value(
+                model.sensory_reference,
+                [
+                    joint_angles_init[:, i_node],  # q
+                    np.zeros((n_q, )),  # qdot
+                    np.zeros((n_references)),  # sensory_noise
+                ],
+
+            )
+            w0 += [ref_trajectory_init]
             # Residual tau
             tau_i = cas.MX.sym(f"tau_{i_node}", n_q)
             lbw += [-10] * n_q
@@ -195,7 +201,7 @@ def prepare_socp_basic(
     )
 
     # Variables
-    x, u, w, lbw, ubw, w0 = declare_variables(n_shooting, n_random)
+    x, u, w, lbw, ubw, w0 = declare_variables(model)
     noises_numerical, noises_single = declare_noises(
         n_shooting, n_random, model.motor_noise_magnitude, model.hand_sensory_noise_magnitude
     )
