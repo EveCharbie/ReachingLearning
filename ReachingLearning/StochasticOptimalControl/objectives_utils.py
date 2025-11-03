@@ -21,18 +21,17 @@ def reach_target_consistently(model, x_single, example_type) -> cas.MX:
         deviations = cas.sum2((ee_pos[1] - ee_pos_mean[1]) ** 2) + cas.sum2((ee_vel[1] - ee_vel_mean[1]) ** 2)
     return deviations
 
-
 def minimize_stochastic_efforts(model, x_single, u_single, noise_single) -> cas.MX:
     muscle_activations = u_single[: model.nb_muscles]
     muscle_offset = model.nb_muscles
     k_fb = u_single[muscle_offset : muscle_offset + model.nb_q * model.n_references]
     k_fb = model.reshape_vector_to_matrix(k_fb, model.matrix_shape_k_fb)
     k_fb_offset = muscle_offset + model.nb_q * model.n_references
-    ref_fb = u_single[k_fb_offset : k_fb_offset + model.n_references]
-    ref_fb_offset = k_fb_offset + model.n_references
-    tau = u_single[ref_fb_offset : ref_fb_offset + model.nb_q]
+    tau = u_single[k_fb_offset : k_fb_offset + model.nb_q]
     motor_noise_this_time = noise_single[ : model.nb_q]
     sensory_noise_this_time = noise_single[model.nb_q : model.nb_q + model.n_references]
+
+    ref_fb = model.sensory_reference(x_single)
 
     tau_computed = cas.MX.zeros(2, model.n_random)
     for i_random in range(model.n_random):
@@ -59,6 +58,5 @@ def minimize_muscle_activations(model, u_single):
 def minimize_residual_tau(model, u_single):
     muscle_offset = model.nb_muscles
     k_fb_offset = muscle_offset + model.nb_q * model.n_references
-    ref_fb_offset = k_fb_offset + model.n_references
-    muscles = u_single[ref_fb_offset : ref_fb_offset + model.nb_q]
+    muscles = u_single[k_fb_offset : k_fb_offset + model.nb_q]
     return cas.sum1(muscles**2)

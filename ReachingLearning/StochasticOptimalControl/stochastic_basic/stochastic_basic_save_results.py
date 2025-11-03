@@ -12,7 +12,6 @@ def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references
     qdot_opt = np.zeros((n_q, n_random, n_shooting + 1))
     muscle_opt = np.zeros((n_muscles, n_shooting))
     k_fb_opt = np.zeros((n_q * n_references, n_shooting))
-    ref_fb_opt = np.zeros((n_references, n_shooting))
     tau_opt = np.zeros((n_q, n_shooting))
 
     offset = 0
@@ -32,13 +31,10 @@ def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_references
             k_fb_opt[:, i_node] = np.array(vector[offset : offset + n_q * n_references]).flatten()
             offset += n_q * n_references
 
-            ref_fb_opt[:, i_node] = np.array(vector[offset : offset + n_references]).flatten()
-            offset += n_references
-
             tau_opt[:, i_node] = np.array(vector[offset : offset + n_q]).flatten()
             offset += n_q
 
-    return q_opt, qdot_opt, muscle_opt, k_fb_opt, ref_fb_opt, tau_opt
+    return q_opt, qdot_opt, muscle_opt, k_fb_opt, tau_opt
 
 
 def get_states_and_controls(
@@ -51,12 +47,11 @@ def get_states_and_controls(
     qdot_opt,
     muscle_opt,
     k_fb_opt,
-    ref_fb_opt,
     tau_opt,
 ):
     # Get optimization variables
     x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
-    u_opt = np.zeros((n_muscles + n_q * n_references + n_references + n_q, n_shooting))
+    u_opt = np.zeros((n_muscles + n_q * n_references + n_q, n_shooting))
 
     for i_node in range(n_shooting + 1):
         x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
@@ -67,10 +62,8 @@ def get_states_and_controls(
             muscle_offset = n_muscles
             u_opt[muscle_offset : muscle_offset + n_q * n_references, i_node] = k_fb_opt[:, i_node].flatten()
             gain_offset = muscle_offset + n_q * n_references
-            u_opt[gain_offset : gain_offset + n_references, i_node] = ref_fb_opt[:, i_node].flatten()
-            reference_offset = gain_offset + n_references
-            u_opt[reference_offset : reference_offset + n_q, i_node] = tau_opt[:, i_node].flatten()
-            tau_offset = reference_offset + n_q
+            u_opt[gain_offset : gain_offset + n_q, i_node] = tau_opt[:, i_node].flatten()
+            tau_offset = gain_offset + n_q
 
     return x_opt, u_opt
 
@@ -96,16 +89,16 @@ def save_socp_basic(
     final_time = socp_basic["final_time"]
 
     # Get optimization variables
-    q_opt, qdot_opt, muscle_opt, k_fb_opt, ref_fb_opt, tau_opt = get_variables_from_vector(
+    q_opt, qdot_opt, muscle_opt, k_fb_opt, tau_opt = get_variables_from_vector(
         n_q, n_random, n_shooting, n_muscles, n_references, w_opt
     )
-    q0, qdot0, muscle0, k_fb0, ref_fb0, tau0 = get_variables_from_vector(
+    q0, qdot0, muscle0, k_fb0, tau0 = get_variables_from_vector(
         n_q, n_random, n_shooting, n_muscles, n_references, w0
     )
-    lbq, lbqdot, lbmuscle, lbk_fb, lbref_fb, lbtau = get_variables_from_vector(
+    lbq, lbqdot, lbmuscle, lbk_fb, lbtau = get_variables_from_vector(
         n_q, n_random, n_shooting, n_muscles, n_references, lbw
     )
-    ubq, ubqdot, ubmuscle, ubk_fb, ubref_fb, ubtau = get_variables_from_vector(
+    ubq, ubqdot, ubmuscle, ubk_fb, ubtau = get_variables_from_vector(
         n_q, n_random, n_shooting, n_muscles, n_references, ubw
     )
     x_opt, u_opt = get_states_and_controls(
@@ -118,7 +111,6 @@ def save_socp_basic(
         qdot_opt,
         muscle_opt,
         k_fb_opt,
-        ref_fb_opt,
         tau_opt,
     )
 
@@ -169,10 +161,6 @@ def save_socp_basic(
         "k_fb0": k_fb0,
         "lbk_fb": lbk_fb,
         "ubk_fb": ubk_fb,
-        "ref_fb_opt": ref_fb_opt,
-        "ref_fb0": ref_fb0,
-        "lbref_fb": lbref_fb,
-        "ubref_fb": ubref_fb,
         "tau_opt": tau_opt,
         "tau0": tau0,
         "lbtau": lbtau,

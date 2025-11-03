@@ -29,7 +29,7 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
         """
         muscles_tau = self.get_muscle_torque(q, qdot, muscle_activations)
         tau_force_field = self.force_field(q, self.force_field_magnitude)
-        tau_fb = k_fb @ (self.sensory_reference(q_ee_delay, qdot_ee_delay, sensory_noise) - ref_fb)
+        tau_fb = k_fb @ (self.sensory_output(q_ee_delay, qdot_ee_delay, sensory_noise) - ref_fb)
         tau_friction = -self.friction_coefficients @ qdot
         torques_computed = muscles_tau + tau_force_field + tau_fb + tau_friction
         return torques_computed

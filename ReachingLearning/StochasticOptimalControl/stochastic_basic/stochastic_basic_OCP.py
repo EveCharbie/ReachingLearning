@@ -5,11 +5,8 @@ from ..utils import ExampleType, get_dm_value
 from ..constraints_utils import (
     mean_start_on_target,
     mean_reach_target,
-    ref_equals_mean_ref,
     mean_end_effector_velocity,
     residual_tau_equals_zero,
-    TARGET_START,
-    TARGET_END,
 )
 from ..objectives_utils import (
     reach_target_consistently,
@@ -30,14 +27,12 @@ def declare_variables(
         - qdot: shoulder and elbow 0
         - muscle activations: all 0.1
         - feedback gains: all 0.1
-        - feedback_reference: hand position at initial guess
         - residual tau: all 0
     and bounds
         - q: shoulder in [0, np.pi/2], elbow in [0, 7/8 * np.pi]
         - qdot: shoulder and elbow in [-10*np.pi, 10*np.pi]
         - muscle activations: all in [1e-6, 1]
         - feedback gains: all in [-10, 10]
-        - feedback_reference: all in [-1, 1]
         - residual tau: all in [-10, 10]
     """
     n_muscles = model.nb_muscles
@@ -90,28 +85,14 @@ def declare_variables(
             lbw += [-10] * (n_q * n_references)
             ubw += [10] * (n_q * n_references)
             w0 += [0.1] * (n_q * n_references)
-            # Feedback reference
-            ref_fb_i = cas.MX.sym(f"ref_fb_{i_node}", n_references)
-            lbw += [-1] * n_references
-            ubw += [1] * n_references
-            ref_trajectory_init = get_dm_value(
-                model.sensory_reference,
-                [
-                    joint_angles_init[:, i_node],  # q
-                    np.zeros((n_q, )),  # qdot
-                    np.zeros((n_references)),  # sensory_noise
-                ],
-
-            )
-            w0 += [ref_trajectory_init]
             # Residual tau
             tau_i = cas.MX.sym(f"tau_{i_node}", n_q)
             lbw += [-10] * n_q
             ubw += [10] * n_q
             w0 += [0, 0]
 
-            u += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i, tau_i)]
-            w += [cas.vertcat(muscle_i, k_fb_i, ref_fb_i, tau_i)]
+            u += [cas.vertcat(muscle_i, k_fb_i, tau_i)]
+            w += [cas.vertcat(muscle_i, k_fb_i, tau_i)]
     return x, u, w, lbw, ubw, w0
 
 
@@ -241,18 +222,10 @@ def prepare_socp_basic(
         j += minimize_muscle_activations(model, u[i_node]) * dt / 2
         j += minimize_residual_tau(model, u[i_node]) * 10 * dt / 2
         j += minimize_gains(model, u[i_node]) * dt / 10  # Regularization
-        j += cas.sum1(ref_equals_mean_ref(model, x[i_node], u[i_node])[0]**2) * 10 * dt / 2
     j += reach_target_consistently(model, x[-1], example_type)
 
     # # Constraints
     # for i_node in range(n_shooting):
-    #     # Reference equality constraint
-    #     reference_constraint = ref_equals_mean_ref(model, x[i_node], u[i_node])
-    #     g += reference_constraint
-    #     lbg += [0] * model.n_references
-    #     ubg += [0] * model.n_references
-    #     g_names += [f"ref_equals_mean_ref"] * model.n_references
-    #
     # #     # # Null torque constraint
     # #     # g += residual_tau_equals_zero(model, u[i_node])
     # #     # lbg += [0] * model.nb_q

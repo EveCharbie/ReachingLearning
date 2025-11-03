@@ -270,6 +270,10 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
         .reshape(
             -1,
         )
+        .tolist() * n_random + np.array(ocp_multimodel["model"].hand_sensory_noise_magnitude)
+        .reshape(
+            -1,
+        )
         .tolist()
         * n_random
     )
@@ -348,37 +352,37 @@ def plot_hand_trajectories(variable_data, ocp_multimodel, n_simulations, save_pa
             axs[0, 0].plot(
                 hand_pos_simulated[i_simulation_total, 0, :],
                 hand_pos_simulated[i_simulation_total, 1, :],
-                color=ocp_multimodel_color,
+                color=SOCP_BASIC_color,
                 linewidth=0.5,
             )
             axs[1, 0].plot(
                 np.linspace(0, final_time, n_shooting + 1),
                 x_simulated[i_simulation_total, 0, :],
-                color=ocp_multimodel_color,
+                color=SOCP_BASIC_color,
                 linewidth=0.5,
             )
             axs[2, 0].plot(
                 np.linspace(0, final_time, n_shooting + 1),
                 x_simulated[i_simulation_total, 1, :],
-                color=ocp_multimodel_color,
+                color=SOCP_BASIC_color,
                 linewidth=0.5,
             )
             axs[0, 1].plot(
                 np.linspace(0, final_time, n_shooting + 1),
                 np.linalg.norm(hand_vel_simulated[i_simulation_total, :, :], axis=0),
-                color=ocp_multimodel_color,
+                color=SOCP_BASIC_color,
                 linewidth=0.5,
             )
             axs[1, 1].plot(
                 np.linspace(0, final_time, n_shooting + 1),
                 x_simulated[i_simulation_total, 2, :],
-                color=ocp_multimodel_color,
+                color=SOCP_BASIC_color,
                 linewidth=0.5,
             )
             axs[2, 1].plot(
                 np.linspace(0, final_time, n_shooting + 1),
                 x_simulated[i_simulation_total, 3, :],
-                color=ocp_multimodel_color,
+                color=SOCP_BASIC_color,
                 linewidth=0.5,
             )
 

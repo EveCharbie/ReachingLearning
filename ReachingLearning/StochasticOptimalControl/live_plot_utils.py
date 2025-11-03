@@ -272,7 +272,7 @@ class OnlineCallback(Callback):
         from .stochastic_basic.stochastic_basic_plot import plot_state_bounds, plot_muscle_bounds, plot_single_bounds
 
         # Bounds
-        lbq, lbqdot, lbmuscle, lbk_fb, lbref_fb, lbtau = get_variables_from_vector(
+        lbq, lbqdot, lbmuscle, lbk_fb, lbtau = get_variables_from_vector(
             self.model.nb_q,
             self.model.n_random,
             self.model.n_shooting,
@@ -280,7 +280,7 @@ class OnlineCallback(Callback):
             self.model.n_references,
             lbx,
         )
-        ubq, ubqdot, ubmuscle, ubk_fb, ubref_fb, ubtau = get_variables_from_vector(
+        ubq, ubqdot, ubmuscle, ubk_fb, ubtau = get_variables_from_vector(
             self.model.nb_q,
             self.model.n_random,
             self.model.n_shooting,
@@ -297,8 +297,6 @@ class OnlineCallback(Callback):
             "ubmuscle": ubmuscle,
             "lbk_fb": lbk_fb,
             "ubk_fb": ubk_fb,
-            "lbref_fb": lbref_fb,
-            "ubref_fb": ubref_fb,
             "lbtau": lbtau,
             "ubtau": ubtau,
         }
@@ -343,7 +341,6 @@ class OnlineCallback(Callback):
         axs[1, 1].set_title("Triceps Lateral")
         axs[1, 2].set_title("Triceps Long")
         axs[2, 0].set_title("Gains (K)")
-        axs[2, 1].set_title("References (ref_fb)")
         axs[2, 2].set_title("Joint Torques (tau)")
 
         plot_muscle2 = axs[0, 0].plot(
@@ -382,16 +379,7 @@ class OnlineCallback(Callback):
                 self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color
             )
 
-        # Refs plots
-        colors = get_cmap("viridis")
-        plot_refs = []
-        for i_reference in range(self.model.n_references):
-            color = colors(i_reference / (self.model.n_references))
-            plot_refs += axs[2, 1].plot(
-                self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color
-            )
-
-        # Refs plots
+        # Refs taus
         colors = get_cmap("viridis")
         plot_tau = []
         for i_tau in range(self.model.nb_q):
@@ -415,16 +403,11 @@ class OnlineCallback(Callback):
         axs[2, 0].set_ylim(np.min(lbk_fb) - 0.1, np.max(ubk_fb) + 0.1)
 
         plot_single_bounds(
-            axs[2, 1], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="ref_fb"
-        )
-        axs[2, 1].set_ylim(np.min(lbref_fb) - 0.1, np.max(ubref_fb) + 0.1)
-
-        plot_single_bounds(
             axs[2, 2], self.time_vector[:-1], fake_variable_data, self.model.n_shooting, bound_name="tau"
         )
         axs[2, 2].set_ylim(np.min(lbtau) - 0.1, np.max(ubtau) + 0.1)
 
-        controls_plots = muscle_plots + plot_gain + plot_refs + plot_tau
+        controls_plots = muscle_plots + plot_gain + plot_tau
 
         self.controls_fig = controls_fig
         self.controls_plots = controls_plots
@@ -439,7 +422,7 @@ class OnlineCallback(Callback):
         """
 
         x = args["x"]
-        q, qdot, muscle, k_fb, ref_fb, tau = get_variables_from_vector(
+        q, qdot, muscle, k_fb, tau = get_variables_from_vector(
             self.model.nb_q,
             self.model.n_random,
             self.model.n_shooting,
@@ -468,12 +451,8 @@ class OnlineCallback(Callback):
             self.controls_plots[muscle_offset + i_gain].set_ydata(k_fb[i_gain, :])
 
         gain_offset = muscle_offset + self.model.nb_q * self.model.n_references
-        for i_reference in range(self.model.n_references):
-            self.controls_plots[gain_offset + i_reference].set_ydata(ref_fb[i_reference, :])
-
-        reference_offset = gain_offset + self.model.n_references
         for i_tau in range(self.model.nb_q):
-            self.controls_plots[reference_offset + i_tau].set_ydata(tau[i_tau, :])
+            self.controls_plots[gain_offset + i_tau].set_ydata(tau[i_tau, :])
 
     def eval(self, arg: list | tuple) -> list:
         """
