@@ -42,6 +42,33 @@ class StochasticBasicArmModel(ArmModel):
 
         self.matrix_shape_k_fb = (self.nb_q, self.n_references)
 
+    @property
+    def q_all_indices(self):
+        return range(0, self.nb_q * self.n_random)
+
+    @property
+    def qdot_all_indices(self):
+        return range(self.nb_q * self.n_random, 2 * self.nb_q * self.n_random)
+
+    @property
+    def muscle_indices(self):
+        return range(0, self.nb_muscles)
+
+    @property
+    def k_fb_indices(self):
+        offset = self.nb_muscles
+        return range(offset, offset + self.n_references * self.nb_q)
+
+    @property
+    def ref_fb_indices(self):
+        offset = self.nb_muscles + self.n_references * self.nb_q
+        return range(offset, offset + self.n_references)
+
+    @property
+    def tau_indices(self):
+        offset = self.nb_muscles + self.n_references * self.nb_q + self.n_references
+        return range(offset, offset + self.nb_q)
+
     def sensory_reference(self, q, qdot, sensory_noise):
         """
         Sensory feedback: hand position and velocity

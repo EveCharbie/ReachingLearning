@@ -96,12 +96,7 @@ def ref_equals_mean_ref(model, x_single, u_single) -> list[cas.MX]:
     Constraint to impose that the feedback reference is equal to the mean feedback function value
     """
     nb_random = model.n_random
-    ref_fb = u_single[
-        model.nb_muscles
-        + model.nb_q * model.n_references : model.nb_muscles
-        + model.nb_q * model.n_references
-        + model.n_references
-    ]
+    ref_fb = u_single[model.ref_fb_indices]
     ee_pos, ee_vel = get_end_effector_for_all_random(model, x_single)
     ee_pos_mean = cas.sum2(ee_pos) / nb_random
     ee_vel_mean = cas.sum2(ee_vel) / nb_random

@@ -235,6 +235,7 @@ def prepare_socp_basic(
         j += minimize_muscle_activations(model, u[i_node]) * dt / 2
         j += minimize_residual_tau(model, u[i_node]) * 10 * dt / 2
         j += minimize_gains(model, u[i_node]) * dt / 10  # Regularization
+        j += cas.sum1(ref_equals_mean_ref(model, x[i_node], u[i_node])[0]**2) * 10 * dt / 2
     j += reach_target_consistently(model, x[-1], example_type)
 
     # # Constraints
@@ -246,11 +247,11 @@ def prepare_socp_basic(
     #     ubg += [0] * model.n_references
     #     g_names += [f"ref_equals_mean_ref"] * model.n_references
     #
-    #     # # Null torque constraint
-    #     # g += residual_tau_equals_zero(model, u[i_node])
-    #     # lbg += [0] * model.nb_q
-    #     # ubg += [0] * model.nb_q
-    #     # g_names += [f"residual_tau_equals_zero"] * model.nb_q
+    # #     # # Null torque constraint
+    # #     # g += residual_tau_equals_zero(model, u[i_node])
+    # #     # lbg += [0] * model.nb_q
+    # #     # ubg += [0] * model.nb_q
+    # #     # g_names += [f"residual_tau_equals_zero"] * model.nb_q
 
     # Terminal constraint
     g_target, lbg_target, ubg_target = mean_reach_target(model, x[-1], example_type)
