@@ -1,0 +1,4 @@
+
+from ReachingLearning import train_bayesian_dynamics_learner
+
+train_bayesian_dynamics_learner()
