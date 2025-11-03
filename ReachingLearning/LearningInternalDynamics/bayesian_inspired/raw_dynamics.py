@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cas
 import biorbd_casadi as biorbd
-from sklearn.gaussian_process.kernels import ConstantKernel, RBF, WhiteKernel
-from sklearn.gaussian_process import GaussianProcessRegressor
+import sklearn.gaussian_process as gp
 from pathlib import Path
 
 from ...StochasticOptimalControl.utils import RK4
@@ -20,23 +19,13 @@ class BayesianDynamicsLearner:
         self.nb_q = nb_q
         self.gp_models = []
 
-        # Initialize GP for each output dimension
-        for i in range(nb_q * 2):
-            kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2))
-            # TODO: add noise
-            # WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-5, 1e-1))
-
-            gp = GaussianProcessRegressor(
-                kernel=kernel,
-                n_restarts_optimizer=10,
-                alpha=1e-6,
-                normalize_y=True
-            )
-            self.gp_models.append(gp)
+        # Kernel
+        kernel = gp.kernels.ConstantKernel(1.0) * gp.kernels.RBF(length_scale=1.0)
+        self.gp_models = gp.GaussianProcessRegressor(kernel=kernel, normalize_y=True)
 
         # Storage for training data
-        self.input_training_data = []  # Features: [state, control]
-        self.output_training_data = [[] for _ in range(nb_q * 2)]  # Target: state derivatives for each dimension
+        self.input_training_data = []  # q, qdot, tau
+        self.output_training_data = []  # qdot, qddot
 
         # Prior mean function (can be zero or based on domain knowledge)
         self.use_prior = False
@@ -47,28 +36,26 @@ class BayesianDynamicsLearner:
 
         Parameters
         ----------
-        x_samples: array of shape (n_samples, nb_q) - states
+        x_samples: array of shape (n_samples, nb_q * 2) - states
         u_samples: array of shape (n_samples, nb_q) - controls
-        xdot_real: array of shape (n_samples, nb_q) - true state derivatives
+        xdot_real: array of shape (n_samples, nb_q * 2) - true state derivatives
         """
         # Concatenate state and control as features
-        input_new = np.vstack((x_samples, u_samples))
+        input_new = np.hstack((x_samples, u_samples))
 
         # Add to training data
         if len(self.input_training_data) == 0:
             self.input_training_data = input_new
         else:
-            self.input_training_data = np.hstack((self.input_training_data, input_new))
+            self.input_training_data = np.vstack((self.input_training_data, input_new))
 
-        for i in range(self.nb_q * 2):
-            self.output_training_data[i].extend(xdot_real[:, i].tolist())
+        if len(self.output_training_data) == 0:
+            self.output_training_data = xdot_real
+        else:
+            self.output_training_data = np.vstack((self.output_training_data, xdot_real))
 
         # Retrain each GP model
-        for i in range(self.nb_q * 2):
-            output_train_i = np.array(self.output_training_data[i])
-            self.gp_models[i].fit(self.input_training_data, output_train_i)
-
-        print(f"  Updated GP models with {len(input_new)} new samples. Total samples: {len(self.input_training_data)}")
+        self.gp_models.fit(self.input_training_data, self.output_training_data)
 
     def predict(self, x, u, return_std=False):
         """
@@ -86,22 +73,15 @@ class BayesianDynamicsLearner:
         xdot_std (optional): standard deviation of prediction
         """
         # Create feature vector
-        input_test = np.hstack([x, u]).reshape(1, -1)
-
-        xdot_mean = np.zeros(self.nb_q * 2)
-        xdot_std = np.zeros(self.nb_q * 2)
-
-        for i in range(self.nb_q * 2):
-            if return_std:
-                mean, std = self.gp_models[i].predict(input_test, return_std=True)
-                xdot_mean[i] = mean[0]
-                xdot_std[i] = std[0]
-            else:
-                xdot_mean[i] = self.gp_models[i].predict(input_test)
+        input_test = np.hstack((x.reshape(-1, ), u.reshape(-1, ))).reshape(1, -1)
 
         if return_std:
+            mean, std = self.gp_models.predict(input_test, return_std=True)
+            xdot_mean = mean[0]
+            xdot_std = std[0]
             return xdot_mean, xdot_std
         else:
+            xdot_mean = self.gp_models.predict(input_test)
             return xdot_mean
 
     def forward_dyn(self, x, u, motor_noise):
@@ -221,19 +201,19 @@ def train_bayesian_dynamics_learner():
         # Compute the error
         errors_this_time = np.mean(np.linalg.norm(x_integrated_approx - x_integrated_real, axis=1))
         errors.append(errors_this_time)
-        print(f"  Trajectory error: {errors_this_time:.6f}")
+        print(f"{i_episode} --- Trajectory error: {errors_this_time:.6f}")
 
         # Update the Bayesian model with new observations
         learner.update(
-            x_samples=x_integrated_real[:, :-1],
-            u_samples=u_this_time,
-            xdot_real=xdot_real,
+            x_samples=x_integrated_real[:, :-1].T,
+            u_samples=u_this_time.T,
+            xdot_real=xdot_real.T,
         )
 
         # Print progress every 10 episodes
-        if (i_episode + 1) % 10 == 0:
+        if (i_episode) % 10 == 0:
             recent_error = np.mean(errors[-10:])
-            print(f"  Average error (last 10 episodes): {recent_error:.6f}")
+            print(f"  Average error episodes : {recent_error:.6f}")
 
     print("-----------------------------------------------------")
     print("Learning complete!")
