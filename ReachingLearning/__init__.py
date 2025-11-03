@@ -1,3 +1,5 @@
+# --- StochasticOptimalControl --- #
+
 # models
 from .StochasticOptimalControl.models.arm_model import ArmModel
 
@@ -35,10 +37,12 @@ from .StochasticOptimalControl.stochastic_delay.stochastic_delay_plot import plo
 from .StochasticOptimalControl.stochastic_delay.stochastic_delay_animate import animate_socp_delay
 from .StochasticOptimalControl.stochastic_delay.stochastic_delay_run import run_socp_delay
 
-
 # state_estimator
 from .StochasticOptimalControl.state_estimator.geometrical_state_estimate import get_states_from_muscle_lengths
 
 # utils
 from .StochasticOptimalControl.utils import ExampleType, solve
 from .StochasticOptimalControl.save_utils import get_print_tol
+
+# --- LearningInternalDynamics --- #
+from .LearningInternalDynamics.bayesian_inspired.raw_dynamics import train_bayesian_dynamics_learner
