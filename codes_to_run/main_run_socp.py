@@ -34,8 +34,8 @@ n_shooting = int(final_time / dt)
 tol = 1e-6
 
 motor_noise_std = 0.05  # taus
-wPq_std = 0.00001
-wPqdot_std = 0.00001
+wPq_std = 0.001
+wPqdot_std = 0.001
 
 
 # # --- Run optimizations --- #
