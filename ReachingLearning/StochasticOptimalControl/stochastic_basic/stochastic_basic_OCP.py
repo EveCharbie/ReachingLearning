@@ -219,9 +219,9 @@ def prepare_socp_basic(
     # Objectives
     for i_node in range(n_shooting):
         j += minimize_stochastic_efforts(model, x[i_node], u[i_node], noises_numerical[i_node]) * dt / 2
-        j += minimize_muscle_activations(model, u[i_node]) * dt / 2
+        # j += minimize_muscle_activations(model, u[i_node]) * dt / 2
         j += minimize_residual_tau(model, u[i_node]) * 10 * dt / 2
-        j += minimize_gains(model, u[i_node]) * dt / 10  # Regularization
+        j += minimize_gains(model, u[i_node]) * dt / 2  # Regularization
     j += reach_target_consistently(model, x[-1], example_type)
 
     # # Constraints
