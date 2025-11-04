@@ -23,6 +23,33 @@ class DeterministicMultiArmModel(ArmModel):
         motor_noise_magnitude = cas.DM(np.array([motor_noise_std] * self.nb_q))
         self.motor_noise_magnitude = motor_noise_magnitude
 
+    @property
+    def q_all_indices(self):
+        return range(0, self.nb_q * self.n_random)
+
+    @property
+    def qdot_all_indices(self):
+        return range(self.nb_q * self.n_random, 2 * self.nb_q * self.n_random)
+
+    @property
+    def muscle_indices(self):
+        return range(0, self.nb_muscles)
+
+    @property
+    def tau_indices(self):
+        offset = self.nb_muscles + self.n_k_fb
+        return range(offset, offset + self.nb_q)
+
+    @property
+    def motor_noise_indices(self):
+        return range(0, self.nb_q)
+
+    def q_indices_this_random(self, i_random):
+        return range(i_random * self.nb_q, (i_random + 1) * self.nb_q)
+
+    def qdot_indices_this_random(self, i_random):
+        return range(self.q_offset + i_random * self.nb_q, self.q_offset + (i_random + 1) * self.nb_q)
+
     def collect_tau(self, q, qdot, muscle_activations, tau, motor_noise_this_time):
         """
         Collect all tau components
@@ -58,8 +85,8 @@ class DeterministicMultiArmModel(ArmModel):
         qddot = cas.MX.zeros(self.nb_q * self.n_random)
         noise_offset = 0
         for i_random in range(self.n_random):
-            q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
-            qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
+            q_this_time = x_single[self.q_indices_this_random(i_random)]
+            qdot_this_time = x_single[self.qdot_indices_this_random(i_random)]
             motor_noise_this_time = noise_single[noise_offset : noise_offset + self.nb_q]
             noise_offset += self.n_noises
 
@@ -73,7 +100,7 @@ class DeterministicMultiArmModel(ArmModel):
             )
 
             # Dynamics
-            qddot[i_random * self.nb_q : (i_random + 1) * self.nb_q] = self.forward_dynamics(
+            qddot[self.q_indices_this_random(i_random)] = self.forward_dynamics(
                 q_this_time, qdot_this_time, torques_computed
             )
 

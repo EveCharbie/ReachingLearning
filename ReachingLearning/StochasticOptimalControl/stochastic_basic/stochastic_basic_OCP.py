@@ -37,7 +37,7 @@ def declare_variables(
     """
     n_muscles = model.nb_muscles
     n_q = model.nb_q
-    n_references = model.n_references# 2 hand position + 2 hand velocity
+    n_k_fb = model.n_k_fb
     n_random = model.n_random
     n_shooting = model.n_shooting
 
@@ -81,10 +81,10 @@ def declare_variables(
             ubw += [1.0] * n_muscles
             w0 += [0.1] * n_muscles
             # Feedback gains
-            k_fb_i = cas.MX.sym(f"k_fb_{i_node}", n_q * n_references)
-            lbw += [-10] * (n_q * n_references)
-            ubw += [10] * (n_q * n_references)
-            w0 += [0.1] * (n_q * n_references)
+            k_fb_i = cas.MX.sym(f"k_fb_{i_node}", n_k_fb)
+            lbw += [-10] * n_k_fb
+            ubw += [10] * n_k_fb
+            w0 += [0.1] * n_k_fb
             # Residual tau
             tau_i = cas.MX.sym(f"tau_{i_node}", n_q)
             lbw += [-10] * n_q

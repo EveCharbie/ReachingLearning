@@ -373,13 +373,13 @@ class OnlineCallback(Callback):
         # Gain plots
         colors = get_cmap("viridis")
         plot_gain = []
-        for i_gain in range(self.model.nb_q * self.model.n_references):
-            color = colors(i_gain / (self.model.nb_q * self.model.n_references))
+        for i_gain in range(self.model.nb_muscles * self.model.n_references):
+            color = colors(i_gain / (self.model.nb_muscles * self.model.n_references))
             plot_gain += axs[2, 0].plot(
                 self.time_vector[:-1], np.zeros_like(self.time_vector[:-1]), linestyle="-", marker=".", color=color
             )
 
-        # Refs taus
+        # Taus
         colors = get_cmap("viridis")
         plot_tau = []
         for i_tau in range(self.model.nb_q):
@@ -447,10 +447,10 @@ class OnlineCallback(Callback):
         self.controls_plots[5].set_ydata(muscle[5, :])
 
         muscle_offset = 6
-        for i_gain in range(self.model.nb_q * self.model.n_references):
+        for i_gain in range(self.model.nb_muscles * self.model.n_references):
             self.controls_plots[muscle_offset + i_gain].set_ydata(k_fb[i_gain, :])
 
-        gain_offset = muscle_offset + self.model.nb_q * self.model.n_references
+        gain_offset = muscle_offset + self.model.nb_muscles * self.model.n_references
         for i_tau in range(self.model.nb_q):
             self.controls_plots[gain_offset + i_tau].set_ydata(tau[i_tau, :])
 

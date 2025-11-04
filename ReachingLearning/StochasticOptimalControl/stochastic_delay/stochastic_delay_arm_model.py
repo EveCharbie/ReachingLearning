@@ -23,6 +23,46 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
         self.delay = delay
         self.nb_frames_delay = int(delay / dt)
 
+    @property
+    def q_all_indices(self):
+        return range(0, self.nb_q * self.n_random)
+
+    @property
+    def qdot_all_indices(self):
+        return range(self.nb_q * self.n_random, 2 * self.nb_q * self.n_random)
+
+    @property
+    def muscle_indices(self):
+        return range(0, self.nb_muscles)
+
+    @property
+    def n_k_fb(self):
+        return self.n_references * self.nb_muscles
+
+    @property
+    def k_fb_indices(self):
+        offset = self.nb_muscles
+        return range(offset, offset + self.n_k_fb)
+
+    @property
+    def tau_indices(self):
+        offset = self.nb_muscles + self.n_k_fb
+        return range(offset, offset + self.nb_q)
+
+    @property
+    def motor_noise_indices(self):
+        return range(0, self.nb_q)
+
+    @property
+    def sensory_noise_indices(self):
+        return range(self.nb_q, self.nb_q + self.n_references)
+
+    def q_indices_this_random(self, i_random):
+        return range(i_random * self.nb_q, (i_random + 1) * self.nb_q)
+
+    def qdot_indices_this_random(self, i_random):
+        return range(self.q_offset + i_random * self.nb_q, self.q_offset + (i_random + 1) * self.nb_q)
+
     def collect_tau(self, q, q_ee_delay, qdot, qdot_ee_delay, muscle_activations, k_fb, ref_fb, sensory_noise):
         """
         Collect all tau components
@@ -64,9 +104,9 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
         qddot = cas.MX.zeros(self.nb_q * self.n_random)
         noise_offset = 0
         for i_random in range(self.n_random):
-            q_this_time = x_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
+            q_this_time = x_single[self.qdot_indices_this_random(i_random)]
             q_ee_delay_this_time = x_ee_delay_single[i_random * self.nb_q : (i_random + 1) * self.nb_q]
-            qdot_this_time = x_single[self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q]
+            qdot_this_time = x_single[self.qdot_indices_this_random(i_random)]
             qdot_ee_delay_this_time = x_ee_delay_single[
                 self.q_offset + i_random * self.nb_q : self.q_offset + (i_random + 1) * self.nb_q
             ]
@@ -93,7 +133,7 @@ class StochasticDelayArmModel(StochasticBasicArmModel):
             )
 
             # Dynamics
-            qddot[i_random * self.nb_q : (i_random + 1) * self.nb_q] = self.forward_dynamics(
+            qddot[self.q_indices_this_random(i_random)] = self.forward_dynamics(
                 q_this_time, qdot_this_time, torques_computed
             )
 

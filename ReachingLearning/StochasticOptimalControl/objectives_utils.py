@@ -22,21 +22,19 @@ def reach_target_consistently(model, x_single, example_type) -> cas.MX:
     return deviations
 
 def minimize_stochastic_efforts(model, x_single, u_single, noise_single) -> cas.MX:
-    muscle_activations = u_single[: model.nb_muscles]
-    muscle_offset = model.nb_muscles
-    k_fb = u_single[muscle_offset : muscle_offset + model.nb_q * model.n_references]
+    muscle_activations = u_single[model.muscle_indices]
+    k_fb = u_single[model.k_fb_indices]
     k_fb = model.reshape_vector_to_matrix(k_fb, model.matrix_shape_k_fb)
-    k_fb_offset = muscle_offset + model.nb_q * model.n_references
-    tau = u_single[k_fb_offset : k_fb_offset + model.nb_q]
-    motor_noise_this_time = noise_single[ : model.nb_q]
-    sensory_noise_this_time = noise_single[model.nb_q : model.nb_q + model.n_references]
+    tau = u_single[model.tau_indices]
+    motor_noise_this_time = noise_single[model.motor_noise_indices]
+    sensory_noise_this_time = noise_single[model.sensory_noise_indices]
 
     ref_fb = model.sensory_reference(x_single)
 
     tau_computed = cas.MX.zeros(2, model.n_random)
     for i_random in range(model.n_random):
-        q_this_time = x_single[i_random * model.nb_q : (i_random + 1) * model.nb_q]
-        qdot_this_time = x_single[model.q_offset + i_random * model.nb_q : model.q_offset + (i_random + 1) * model.nb_q]
+        q_this_time = x_single[model.q_indices_this_random(i_random)]
+        qdot_this_time = x_single[model.qdot_indices_this_random(i_random)]
 
         tau_computed[:, i_random] = model.collect_tau(
             q_this_time, qdot_this_time, muscle_activations, k_fb, ref_fb, tau, motor_noise_this_time, sensory_noise_this_time
