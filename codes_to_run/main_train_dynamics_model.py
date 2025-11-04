@@ -1,4 +1,7 @@
 
 from ReachingLearning import train_bayesian_dynamics_learner
+# from ReachingLearning import train_extended_kalman_filter_learner
+from ReachingLearning import  train_spline_dynamics_learner
 
-train_bayesian_dynamics_learner()
+# train_bayesian_dynamics_learner()
+train_spline_dynamics_learner()

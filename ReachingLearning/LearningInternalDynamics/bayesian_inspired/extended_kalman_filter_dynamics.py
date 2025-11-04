@@ -1,91 +1,102 @@
+"""
+This file was retired before even being completed.
+TODO: It should be removed !
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cas
 import biorbd_casadi as biorbd
-import sklearn.gaussian_process as gp
+from filterpy.kalman import ExtendedKalmanFilter
 from pathlib import Path
 
-from ...StochasticOptimalControl.utils import RK4
+from ...StochasticOptimalControl.utils import RK4, get_dm_value
 
 
+# Optimized in Tom's version
+shoulder_pos_initial = 0.349065850398866
+elbow_pos_initial = 2.245867726451909
+shoulder_pos_final = 0.959931088596881
+elbow_pos_final = 1.159394851847144
 
-class BayesianDynamicsLearner:
-    """
-    Bayesian dynamics learner using Gaussian Process regression.
-    Maintains separate GP models for each state dimension.
-    """
 
-    def __init__(self, nb_q):
-        self.nb_q = nb_q
-        self.gp_models = []
+class ExtendedKalmanFilterLearner:
+    def __init__(self, real_model: biorbd.Model, n_shooting: int):
 
-        # Kernel
-        kernel = gp.kernels.ConstantKernel(1.0) * gp.kernels.RBF(length_scale=1.0)
-        self.gp_models = gp.GaussianProcessRegressor(kernel=kernel, normalize_y=True)
+        self.n_shooting = n_shooting
+        self.real_model = real_model
+        self.nb_q = real_model.nbQ()
 
-        # Storage for training data
-        self.input_training_data = []  # q, qdot, tau
-        self.output_training_data = []  # qdot, qddot
+        # Initialize parameters
+        q = np.zeros((self.nb_q, self.n_shooting + 1))
+        q[0, :] = np.linspace(shoulder_pos_initial, shoulder_pos_final, n_shooting + 1)  # Shoulder
+        q[1, :] = np.linspace(elbow_pos_initial, elbow_pos_final, n_shooting + 1)  # Elbow
+        qdot = np.zeros((self.nb_q, self.n_shooting + 1))
 
-        # Prior mean function (can be zero or based on domain knowledge)
-        self.use_prior = False
+        mass_matrix_real = np.zeros((self.nb_q, self.nb_q, self.n_shooting + 1))
+        nl_effects_real = np.zeros((self.nb_q, self.n_shooting + 1))
+        for i_node in range(self.n_shooting + 1):
+            mass_matrix_real[:, :, i_node] = get_dm_value(real_model.massMatrix, [q[:, i_node]])
+            nl_effects_real[:, i_node] = get_dm_value(real_model.NlEffects, [q[:, i_node], qdot[:, i_node]])
 
-    def update(self, x_samples, u_samples, xdot_real):
+        self.parameters_real = np.vstack((mass_matrix_real, nl_effects_real))
+        self.parameters_estimates = np.vstack((
+            mass_matrix_real * np.random.rand(self.nb_q, self.nb_q, self.n_shooting + 1),
+            nl_effects_real * np.random.rand(self.nb_q, self.n_shooting + 1),
+        ))
+
+    def measure_states(self, x):
+        """Measurement function z = h(x)"""
+        # Assume we can measure q and qdot directly and perfectly for now
+        return x
+
+    def dynamics_jacobian(self, x):
         """
-        Update the GP models with new observations.
-
-        Parameters
-        ----------
-        x_samples: array of shape (n_samples, nb_q * 2) - states
-        u_samples: array of shape (n_samples, nb_q) - controls
-        xdot_real: array of shape (n_samples, nb_q * 2) - true state derivatives
+        ŷ(p, t) - ŷ(^p, t) ≈ ∂ŷ/∂p(p - ^p)
+        Eq 1 in Berniker & Kording 2008
+        Taylor approximation to the first order
         """
-        # Concatenate state and control as features
-        input_new = np.hstack((x_samples, u_samples))
+        prediction_error = self.forward_dyn(self.parameters_real) - self.forward_dyn(self.parameters_estimates)
+        return prediction_error
 
-        # Add to training data
-        if len(self.input_training_data) == 0:
-            self.input_training_data = input_new
-        else:
-            self.input_training_data = np.vstack((self.input_training_data, input_new))
+    def measurement_jacobian(self, x):
+        """Jacobian of h w.r.t x"""
+        return np.eye(4)
 
-        if len(self.output_training_data) == 0:
-            self.output_training_data = xdot_real
-        else:
-            self.output_training_data = np.vstack((self.output_training_data, xdot_real))
+    # ---- Initialize EKF ----
+    ekf = ExtendedKalmanFilter(dim_x=4, dim_z=4, dim_u=2)
+    ekf.x = np.zeros(4)       # initial state [q1, q2, dq1, dq2]
+    ekf.P = np.eye(4) * 0.1   # covariance
+    ekf.R = np.eye(4) * 1e-3  # measurement noise
+    ekf.Q = np.eye(4) * 1e-4  # process noise
 
-        # Retrain each GP model
-        self.gp_models.fit(self.input_training_data, self.output_training_data)
+    # ---- Simulation ----
+    n_steps = 500
+    true_state = np.zeros((n_steps, 4))
+    meas = np.zeros((n_steps, 4))
+    est = np.zeros((n_steps, 4))
 
-    def predict(self, x, u, return_std=False):
-        """
-        Predict state derivative xdot = f(x, u) using the learned GP models.
+    for t in range(1, n_steps):
+        u = np.array([0.1*np.sin(0.05*t), 0.2*np.cos(0.05*t)])
 
-        Parameters
-        ----------
-        x: state vector of shape (2 * nb_q,)
-        u: control vector of shape (nb_q,)
-        return_std: if True, also return standard deviation
+        # simulate true dynamics
+        true_state[t] = f(true_state[t-1], u)
+        meas[t] = true_state[t] + np.random.multivariate_normal(np.zeros(4), ekf.R)
 
-        Returns
-        -------
-        xdot_mean: predicted state derivative
-        xdot_std (optional): standard deviation of prediction
-        """
-        # Create feature vector
-        input_test = np.hstack((x.reshape(-1, ), u.reshape(-1, ))).reshape(1, -1)
+        # --- EKF predict/update ---
+        F = F_jacobian(ekf.x, u)
+        ekf.F = F
+        ekf.predict_update(meas[t], f, h, args=(u,), hx_args=(), Fx=F_jacobian, Hx=H_jacobian)
 
-        if return_std:
-            mean, std = self.gp_models.predict(input_test, return_std=True)
-            xdot_mean = mean[0]
-            xdot_std = std[0]
-            return xdot_mean, xdot_std
-        else:
-            xdot_mean = self.gp_models.predict(input_test)
-            return xdot_mean
+        est[t] = ekf.x
 
-    def forward_dyn(self, x, u, motor_noise):
-        return self.predict(x, u, return_std=False)
+    def forward_dyn(self, parameters: np.ndarray) -> Callable:
+        # Update the dynamics function based on current parameters
+        # For simplicity, assume parameters directly modify some coefficients in the dynamics
+        # This is a placeholder; actual implementation depends on how parameters affect dynamics
+        modified_dynamics = ...  # Modify the dynamics using parameters
+        return modified_dynamics
+
 
 def get_the_real_dynamics():
 
@@ -111,7 +122,7 @@ def get_the_real_dynamics():
     return real_dynamics
 
 
-def test_the_dynamics(x0: np.ndarray, u: np.ndarray, dt: float, current_forward_dyn, real_forward_dyn: cas.Function):
+def integrate_the_dynamics(x0: np.ndarray, u: np.ndarray, dt: float, current_forward_dyn, real_forward_dyn: cas.Function):
 
     nb_q = 2
     n_shooting = u.shape[1]
@@ -121,9 +132,16 @@ def test_the_dynamics(x0: np.ndarray, u: np.ndarray, dt: float, current_forward_
     x_integrated_real[:, 0] = x0
     xdot_real = np.zeros((2*nb_q, n_shooting))
     for i_node in range(n_shooting):
+
+        # EKF predict/update
+        F = F_jacobian(ekf.x, u)
+        ekf.F = F
+        ekf.predict_update(x_integrated_real[:, i_node], f, h, args=(u,), hx_args=(), Fx=F_jacobian, Hx=H_jacobian)
+        current_forward_dyn = get_current_forward_dyn(parameters=ekf.x)
+
         x_integrated_approx[:, i_node + 1] = (
             RK4(
-                x_prev=x_integrated_approx[:, i_node],
+                x_prev=x_integrated_real[:, i_node],
                 u=u[:, i_node],
                 dt=dt,
                 motor_noise=np.zeros((nb_q, )),
@@ -159,7 +177,7 @@ def plot_learning(errors: np.ndarray):
     plt.savefig('learning_curve.png')
 
 
-def train_bayesian_dynamics_learner():
+def train_ekf_dynamics_learner():
 
     np.random.seed(0)
 
@@ -172,8 +190,8 @@ def train_bayesian_dynamics_learner():
     # Get the real dynamics
     real_forward_dyn = get_the_real_dynamics()
 
-    # Initialize the Bayesian learner
-    learner = BayesianDynamicsLearner(nb_q)
+    # Initialize the EKF learner
+    learner = ExtendedKalmanFilterLearner(nb_q)
 
     # Track learning progress
     errors = []
@@ -190,7 +208,7 @@ def train_bayesian_dynamics_learner():
         u_this_time = np.random.uniform(-5, 5, (nb_q, n_shooting))
 
         # Evaluate the error made by the approximate dynamics
-        x_integrated_approx, x_integrated_real, xdot_real = test_the_dynamics(
+        x_integrated_approx, x_integrated_real, xdot_real = integrate_the_dynamics(
             x0_this_time,
             u_this_time,
             dt,

@@ -45,4 +45,6 @@ from .StochasticOptimalControl.utils import ExampleType, solve
 from .StochasticOptimalControl.save_utils import get_print_tol
 
 # --- LearningInternalDynamics --- #
-from .LearningInternalDynamics.bayesian_inspired.raw_dynamics import train_bayesian_dynamics_learner
+from .LearningInternalDynamics.bayesian_inspired.gaussian_processor_dynamics import train_bayesian_dynamics_learner
+# from .LearningInternalDynamics.bayesian_inspired.gaussian_processor_dynamics import train_ekf_dynamics_learner
+from .LearningInternalDynamics.bayesian_inspired.spline_dynamics import train_spline_dynamics_learner
