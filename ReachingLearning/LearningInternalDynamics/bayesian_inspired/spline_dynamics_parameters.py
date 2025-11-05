@@ -6,11 +6,9 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")  # or 'Qt5Agg'
 import matplotlib.pyplot as plt
-import casadi as cas
-import biorbd_casadi as biorbd
 from scipy.interpolate import RBFInterpolator
 
-from ...StochasticOptimalControl.utils import RK4
+from .utils import get_the_real_dynamics, integrate_the_dynamics, generate_random_data
 
 
 class LivePlotter:
@@ -58,22 +56,17 @@ class LivePlotter:
 
     def _initialize_plots(self):
         """Initialize the plot window"""
-        self.fig, self.axs = plt.subplots(2, 3, figsize=(12, 8))
+        self.fig = plt.figure(figsize=(12, 8))
+        ax00 = self.fig.add_subplot(2, 3, 1, projection='3d')
+        ax10 = self.fig.add_subplot(2, 3, 2)
+        ax20 = self.fig.add_subplot(2, 3, 3, projection='3d')
+        ax01 = self.fig.add_subplot(2, 3, 4, projection='3d')
+        ax11 = self.fig.add_subplot(2, 3, 5, projection='3d')
+        ax21 = self.fig.add_subplot(2, 3, 6, projection='3d')
+        self.axs = np.array([[ax00, ax10, ax20],
+                             [ax01, ax11, ax21]])
         plt.ion()
 
-        # Samples
-        self.axs[0, 0].set_title("Q samples")
-        self.axs[0, 1].set_title("Qdot samples")
-        self.axs[0, 2].set_title("Tau samples")
-
-        # Predictions
-        self.axs[1, 0].set_title("dQ predictions")
-        self.axs[1, 1].set_title("dQdot predictions")
-
-        # Error
-        self.axs[1, 2].set_xlabel('Episode')
-        self.axs[1, 2].set_title("Trajectory Error")
-        self.axs[1, 2].grid(True, alpha=0.3)
 
     def _plot_loop(self):
         """Main plotting loop"""
@@ -95,36 +88,51 @@ class LivePlotter:
         for ax in self.axs.flat:
             ax.cla()
 
-        # Samples
+        output_pred_M11 = self.spline_model["M11"](self.input_training_data)
+        output_pred_M12 = self.spline_model["M12"](self.input_training_data)
+        output_pred_M22 = self.spline_model["M22"](self.input_training_data)
+        output_pred_N1 = self.spline_model["N1"](self.input_training_data)
+        output_pred_N2 = self.spline_model["N2"](self.input_training_data)
+
         if self.input_training_data is not None and self.output_training_data["M11"] is not None and self.spline_model["M11"] is not None:
             if self.input_training_data[:, 0].shape[0] == self.output_training_data["M11"].shape[0]:
-                self.axs[0, 0].plot(self.input_training_data[:, 0], self.output_training_data["M11"], '.r', markersize=1)
-                self.axs[0, 0].plot(self.input_training_data[:, 1], self.output_training_data["M11"], '.b', markersize=1)
+                self.axs[0, 0].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], self.output_training_data["M11"], '.k', markersize=1)
+                self.axs[0, 0].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], output_pred_M11, '.m', markersize=1)
                 self.axs[0, 0].set_title("M11")
+                self.axs[0, 0].set_xlabel("q1")
+                self.axs[0, 0].set_ylabel("q2")
 
             if self.input_training_data[:, 0].shape[0] == self.output_training_data["M12"].shape[0]:
-                self.axs[1, 0].plot(self.input_training_data[:, 0], self.output_training_data["M12"], '.r', markersize=1)
-                self.axs[1, 0].plot(self.input_training_data[:, 1], self.output_training_data["M12"], '.b', markersize=1)
+                self.axs[1, 0].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], self.output_training_data["M12"], '.k', markersize=1)
+                self.axs[1, 0].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], output_pred_M12, '.m', markersize=1)
                 self.axs[1, 0].set_title("M12")
+                self.axs[1, 0].set_xlabel("q1")
+                self.axs[1, 0].set_ylabel("q2")
 
             if self.input_training_data[:, 0].shape[0] == self.output_training_data["M22"].shape[0]:
-                self.axs[1, 1].plot(self.input_training_data[:, 0], self.output_training_data["M22"], '.r', markersize=1)
-                self.axs[1, 1].plot(self.input_training_data[:, 1], self.output_training_data["M22"], '.b', markersize=1)
+                self.axs[1, 1].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], self.output_training_data["M22"], '.k', markersize=1)
+                self.axs[1, 1].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], output_pred_M22, '.m', markersize=1)
                 self.axs[1, 1].set_title("M22")
+                self.axs[1, 0].set_xlabel("q1")
+                self.axs[1, 0].set_ylabel("q2")
 
             if self.input_training_data[:, 0].shape[0] == self.output_training_data["N1"].shape[0]:
-                self.axs[0, 2].plot(self.input_training_data[:, 0], self.output_training_data["N1"], '.r', markersize=1)
-                self.axs[0, 2].plot(self.input_training_data[:, 1], self.output_training_data["N1"], '.b', markersize=1)
-                self.axs[0, 2].plot(self.input_training_data[:, 2], self.output_training_data["N1"], '.m', markersize=1)
-                self.axs[0, 2].plot(self.input_training_data[:, 3], self.output_training_data["N1"], '.c', markersize=1)
+                self.axs[0, 2].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], self.output_training_data["N1"], '.k', markersize=1)
+                self.axs[0, 2].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], output_pred_N1, '.m', markersize=1)
+                self.axs[0, 2].plot3D(self.input_training_data[:, 2], self.input_training_data[:, 3], self.output_training_data["N1"], '.k', markersize=1)
+                self.axs[0, 2].plot3D(self.input_training_data[:, 2], self.input_training_data[:, 3], output_pred_N1, '.r', markersize=1)
                 self.axs[0, 2].set_title("N1")
+                self.axs[0, 2].set_xlabel("q1 - qdot1")
+                self.axs[0, 2].set_ylabel("q2 - qdot2")
 
             if self.input_training_data[:, 0].shape[0] == self.output_training_data["N2"].shape[0]:
-                self.axs[1, 2].plot(self.input_training_data[:, 0], self.output_training_data["N2"], '.r', markersize=1)
-                self.axs[1, 2].plot(self.input_training_data[:, 1], self.output_training_data["N2"], '.b', markersize=1)
-                self.axs[1, 2].plot(self.input_training_data[:, 2], self.output_training_data["N2"], '.m', markersize=1)
-                self.axs[1, 2].plot(self.input_training_data[:, 3], self.output_training_data["N2"], '.c', markersize=1)
+                self.axs[1, 2].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], self.output_training_data["N2"], '.k', markersize=1)
+                self.axs[1, 2].plot3D(self.input_training_data[:, 0], self.input_training_data[:, 1], output_pred_N2, '.m', markersize=1)
+                self.axs[1, 2].plot3D(self.input_training_data[:, 2], self.input_training_data[:, 3], self.output_training_data["N2"], '.k', markersize=1)
+                self.axs[1, 2].plot3D(self.input_training_data[:, 2], self.input_training_data[:, 3], output_pred_N2, '.r', markersize=1)
                 self.axs[1, 2].set_title("N2")
+                self.axs[1, 2].set_xlabel("q1 - qdot1")
+                self.axs[1, 2].set_ylabel("q2 - qdot2")
 
         # Error
         if len(self.xdot_errors) > 0:
@@ -187,19 +195,18 @@ class SplineParametersDynamicsLearner:
             self.plotter = LivePlotter()
             self.plotter.start()
 
-    def update(self, x_samples, u_samples, M_real, N_real):
+    def update(self, x_samples, M_real, N_real):
         """
         Update the spline models with new observations.
 
         Parameters
         ----------
         x_samples: array of shape (n_samples, nb_q * 2) - states
-        u_samples: array of shape (n_samples, nb_q) - controls
         M_real: array of shape (n_samples, 2, 2) - true mass matrix
         N_real: array of shape (n_samples, 2) - true non-linear effects vector
         """
         # Concatenate state and control as features
-        input_new = np.hstack((x_samples, u_samples))
+        input_new = x_samples
 
         # Add to training data
         if self.input_training_data is None:
@@ -258,7 +265,7 @@ class SplineParametersDynamicsLearner:
         xdot_estimate: predicted state derivative
         """
         # Create feature vector
-        input_test = np.hstack((x.reshape(-1, ), u.reshape(-1, ))).reshape(1, -1)
+        input_test = x.reshape(1, -1)
 
         M11 = self.spline_model["M11"](input_test)[0]
         M12 = self.spline_model["M12"](input_test)[0]
@@ -271,7 +278,7 @@ class SplineParametersDynamicsLearner:
         nonlinear_effects = np.array([N1, N2])
 
         dq = x[self.nb_q:].reshape(2, 1)
-        dqdot = inv_mass_matrix @ np.reshape(u - nonlinear_effects * x[self.nb_q:], (2, 1))
+        dqdot = inv_mass_matrix @ np.reshape(u - nonlinear_effects, (2, 1))
         xdot_estimate = np.vstack((dq, dqdot))
         return xdot_estimate.reshape(4, )
 
@@ -296,105 +303,6 @@ class SplineParametersDynamicsLearner:
         """Cleanup plotter on deletion"""
         if self.enable_plotting and self.plotter:
             self.plotter.stop()
-
-
-def get_the_real_dynamics():
-    current_path = Path(__file__).parent
-    model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
-    biorbd_model = biorbd.Model(model_path)
-    nb_q = biorbd_model.nbQ()
-    X = cas.MX.sym("x", nb_q * 2)
-    U = cas.MX.sym("u", nb_q)
-    motor_noise = cas.MX.sym("motor_noise", nb_q)
-
-    xdot = cas.vertcat(X[nb_q:], biorbd_model.ForwardDynamics(X[:nb_q], X[nb_q:], U).to_mx())
-    real_dynamics = cas.Function("forward_dynamics", [X, U, motor_noise], [xdot])
-
-    inv_mass_matrix_func = cas.Function(
-        "inv_mass_matrix",
-        [X],
-        [cas.inv(biorbd_model.massMatrix(X[:nb_q]).to_mx())],
-    )
-    nl_effect_vector_func = cas.Function(
-        "nl_effect_vector",
-        [X],
-        [biorbd_model.NonLinearEffect(X[:nb_q], X[nb_q:]).to_mx()],
-    )
-    return real_dynamics, inv_mass_matrix_func, nl_effect_vector_func
-
-
-def integrate_the_dynamics(
-        x0: np.ndarray,
-        u: np.ndarray,
-        dt: float,
-        current_forward_dyn,
-        real_forward_dyn: cas.Function,
-        inv_mass_matrix_func: cas.Function,
-        nl_effect_vector_func: cas.Function,
-):
-    nb_q = 2
-    n_shooting = u.shape[1]
-    x_integrated_approx = np.zeros((2 * nb_q, n_shooting + 1))
-    x_integrated_approx[:, 0] = x0
-    x_integrated_real = np.zeros((2 * nb_q, n_shooting + 1))
-    x_integrated_real[:, 0] = x0
-    xdot_approx = np.zeros((2 * nb_q, n_shooting))
-    xdot_real = np.zeros((2 * nb_q, n_shooting))
-    M_real = np.zeros((n_shooting, nb_q, nb_q))
-    N_real = np.zeros((n_shooting, nb_q))
-    for i_node in range(n_shooting):
-        if current_forward_dyn is None:
-            x_integrated_approx = None
-        else:
-            x_integrated_approx[:, i_node + 1] = (
-                RK4(
-                    x_prev=x_integrated_approx[:, i_node],
-                    u=u[:, i_node],
-                    dt=dt,
-                    motor_noise=np.zeros((nb_q,)),
-                    forward_dyn_func=current_forward_dyn,
-                    n_steps=5
-                )
-            )[-1, :]
-        x_integrated_real[:, i_node + 1] = (
-            RK4(
-                x_prev=x_integrated_real[:, i_node],
-                u=u[:, i_node],
-                dt=dt,
-                motor_noise=np.zeros((nb_q,)),
-                forward_dyn_func=real_forward_dyn,
-                n_steps=5
-            )
-        )[-1, :]
-
-        if current_forward_dyn is None:
-            xdot_approx = None
-        else:
-            xdot_approx[:, i_node] = np.array(current_forward_dyn(
-                x_integrated_real[:, i_node],
-                u[:, i_node],
-                np.zeros((nb_q,)),
-            )).reshape(-1, )
-        xdot_real[:, i_node] = np.array(real_forward_dyn(
-            x_integrated_real[:, i_node],
-            u[:, i_node],
-            np.zeros((nb_q,)),
-        )).reshape(-1, )
-        M_real[i_node, :, :] = np.array(inv_mass_matrix_func(x_integrated_real[:, i_node]))
-        N_real[i_node, :] = np.array(nl_effect_vector_func(x_integrated_real[:, i_node])).reshape(2, )
-    return x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real
-
-
-def generate_random_data(nb_q, n_shooting):
-    # Generate random data to compare against
-    x0_this_time = np.array([
-        np.random.uniform(0, np.pi / 2),
-        np.random.uniform(0, 7 / 8 * np.pi),
-        np.random.uniform(-5, 5),
-        np.random.uniform(-5, 5),
-    ])
-    u_this_time = np.random.uniform(-1, 1, (nb_q, n_shooting))
-    return x0_this_time, u_this_time
 
 
 def train_spline_dynamics_parameters_learner():
@@ -432,7 +340,6 @@ def train_spline_dynamics_parameters_learner():
         # Update the Bayesian model with new observations
         learner.update(
             x_samples=x_integrated_real[:, :-1].T,
-            u_samples=u_this_time.T,
             M_real=M_real,
             N_real=N_real,
         )
@@ -465,7 +372,6 @@ def train_spline_dynamics_parameters_learner():
         # Update the Bayesian model with new observations
         learner.update(
             x_samples=x_integrated_real[:, :-1].T,
-            u_samples=u_this_time.T,
             M_real=M_real,
             N_real=N_real,
         )
