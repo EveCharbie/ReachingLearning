@@ -93,6 +93,7 @@ def solve(
     hessian_approximation: str = "exact",  # or "limited-memory",
     output_file: str = None,
     pre_optim_plot: bool = False,
+    show_online_optim: bool = True,
 ) -> tuple[np.ndarray, dict[str, any]]:
     """Solve the problem using IPOPT solver"""
 
@@ -117,15 +118,6 @@ def solve(
     if pre_optim_plot:
         plot_jacobian(g, w)
 
-    online_callback = OnlineCallback(
-        nx=w.shape[0],
-        ng=g.shape[0],
-        grad_f_func=grad_f_func,
-        grad_g_func=grad_g_func,
-        g_names=g_names,
-        ocp=ocp,
-    )
-
     # Set IPOPT options
     opts = {
         "ipopt.max_iter": max_iter,
@@ -134,8 +126,18 @@ def solve(
         "ipopt.hessian_approximation": hessian_approximation,
         # "ipopt.output_file": output_file,
         # "expand": True,
-        "iteration_callback": online_callback,
     }
+
+    if show_online_optim:
+        online_callback = OnlineCallback(
+            nx=w.shape[0],
+            ng=g.shape[0],
+            grad_f_func=grad_f_func,
+            grad_g_func=grad_g_func,
+            g_names=g_names,
+            ocp=ocp,
+        )
+        opts["iteration_callback"] = online_callback
 
     # Create an NLP solver
     nlp = {"f": j, "x": w, "g": g}

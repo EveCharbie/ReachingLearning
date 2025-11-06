@@ -91,10 +91,15 @@ def prepare_ocp(
     force_field_magnitude: float = 0,
     example_type=ExampleType.CIRCLE,
     n_threads: int = 12,
+    forward_dynamics_func: cas.Function=None,
 ) -> dict[str, any]:
 
     # Model
-    model = DeterministicArmModel(force_field_magnitude=force_field_magnitude)
+    model = DeterministicArmModel(
+        force_field_magnitude=force_field_magnitude,
+        n_shooting=n_shooting,
+        forward_dynamics_func=forward_dynamics_func,
+    )
 
     # Variables
     x, u, w, lbw, ubw, w0 = declare_variables(n_shooting)
@@ -104,6 +109,7 @@ def prepare_ocp(
     g = []
     lbg = []
     ubg = []
+    g_names = []
 
     # Dynamics
     dt = final_time / n_shooting
@@ -116,12 +122,14 @@ def prepare_ocp(
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
+    g_names += [f"mean_start_on_target"] * len(lbg_target)
 
     # Multi-threaded continuity constraint
     x_integrated = multi_threaded_integrator(cas.horzcat(*x[:-1]), cas.horzcat(*u))
     g += [cas.reshape(x_integrated - cas.horzcat(*x[1:]), -1, 1)]
     lbg += [0] * (4 * n_shooting)
     ubg += [0] * (4 * n_shooting)
+    g_names += [f"dynamics_continuity"] * (model.nb_q * 2 * n_shooting)
 
     # Objectives
     j += cas.sum2(cas.sum1(cas.horzcat(*u) ** 2 * dt / 2))  # Minimize muscle activations
@@ -131,6 +139,7 @@ def prepare_ocp(
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
+    g_names += [f"reach_target"] * len(lbg_target)
 
     ocp = {
         "model": model,
@@ -144,22 +153,10 @@ def prepare_ocp(
         "g": cas.vertcat(*g),
         "lbg": cas.vertcat(*lbg),
         "ubg": cas.vertcat(*ubg),
+        "g_names": g_names,
         "n_shooting": n_shooting,
         "final_time": final_time,
         "example_type": example_type,
         "force_field_magnitude": force_field_magnitude,
     }
     return ocp
-
-
-# tgrid = [final_time/n_shooting*k for k in range(n_shooting+1)]
-# import matplotlib.pyplot as plt
-# plt.figure(1)
-# plt.clf()
-# plt.plot(tgrid, x1_opt, '--')
-# plt.plot(tgrid, x2_opt, '-')
-# plt.step(tgrid, vertcat(DM.nan(1), u_opt), '-.')
-# plt.xlabel('t')
-# plt.legend(['x1','x2','u'])
-# plt.grid()
-# plt.show()

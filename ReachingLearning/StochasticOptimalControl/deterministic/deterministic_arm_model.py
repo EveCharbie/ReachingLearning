@@ -8,13 +8,18 @@ class DeterministicArmModel(ArmModel):
     def __init__(
         self,
         force_field_magnitude: float = 0,
+        n_shooting: int = 50,
+        forward_dynamics_func: cas.Function = None,
     ):
         ArmModel.__init__(
             self,
             force_field_magnitude=force_field_magnitude,
         )
+        self.forward_dynamics_func = forward_dynamics_func
+        self.n_shooting = n_shooting
+        self.force_field_magnitude = force_field_magnitude
 
-    def dynamics(
+    def real_dynamics(
         self,
         x_single,
         u_single,
@@ -42,3 +47,15 @@ class DeterministicArmModel(ArmModel):
         dxdt = cas.vertcat(qdot, qddot)
 
         return dxdt
+
+    def dynamics(
+        self,
+        x_single,
+        u_single,
+    ) -> cas.Function:
+        if self.forward_dynamics_func is None:
+            # Biorbd dynamics
+            return self.real_dynamics(x_single, u_single)
+        else:
+            # Dynamics learned in LearningInternalDynamics
+            return self.forward_dynamics_func(x_single, u_single)

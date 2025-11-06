@@ -276,7 +276,7 @@ class OnlineCallback(Callback):
             self.model.n_random,
             self.model.n_shooting,
             self.model.nb_muscles,
-            self.model.n_references,
+            self.model.n_k_fb,
             lbx,
         )
         ubq, ubqdot, ubmuscle, ubk_fb, ubtau = get_variables_from_vector(
@@ -284,7 +284,7 @@ class OnlineCallback(Callback):
             self.model.n_random,
             self.model.n_shooting,
             self.model.nb_muscles,
-            self.model.n_references,
+            self.model.n_k_fb,
             ubx,
         )
         fake_variable_data = {
@@ -426,7 +426,7 @@ class OnlineCallback(Callback):
             self.model.n_random,
             self.model.n_shooting,
             self.model.nb_muscles,
-            self.model.n_references,
+            self.model.n_k_fb,
             x,
         )
 

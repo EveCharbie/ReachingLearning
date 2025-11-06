@@ -48,4 +48,8 @@ from .StochasticOptimalControl.save_utils import get_print_tol
 from .LearningInternalDynamics.bayesian_inspired.gaussian_processor_dynamics import train_bayesian_dynamics_learner
 # from .LearningInternalDynamics.bayesian_inspired.gaussian_processor_dynamics import train_ekf_dynamics_learner
 from .LearningInternalDynamics.bayesian_inspired.spline_dynamics import train_spline_dynamics_learner
-from .LearningInternalDynamics.bayesian_inspired.spline_dynamics_parameters import train_spline_dynamics_parameters_learner
+from .LearningInternalDynamics.bayesian_inspired.spline_dynamics_parameters import (
+    train_spline_dynamics_parameters_learner,
+    evaluate_spline_dynamics_parameters,
+    train_spline_dynamics_parameters_ocp,
+)

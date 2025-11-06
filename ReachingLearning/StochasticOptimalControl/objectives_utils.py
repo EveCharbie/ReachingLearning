@@ -44,12 +44,18 @@ def minimize_stochastic_efforts(model, x_single, u_single, noise_single) -> cas.
 
 
 def minimize_gains(model, u_single):
-    k_fb = u_single[model.nb_muscles : model.nb_muscles + model.nb_q * model.n_references]
+    k_fb = u_single[model.k_fb_indices]
     return cas.sum1(k_fb**2)
 
 
+def minimize_gain_derivatives(model, u_single1, u_single2):
+    k_fb1 = u_single1[model.k_fb_indices]
+    k_fb2 = u_single2[model.k_fb_indices]
+    return cas.sum1((k_fb2 - k_fb1) **2)
+
+
 def minimize_muscle_activations(model, u_single):
-    muscles = u_single[: model.nb_muscles]
+    muscles = u_single[model.muscle_indices]
     return cas.sum1(muscles**2)
 
 

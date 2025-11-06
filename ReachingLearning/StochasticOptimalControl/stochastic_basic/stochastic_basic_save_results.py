@@ -5,14 +5,14 @@ from datetime import datetime
 from ..save_utils import get_print_tol, integrate_single_shooting
 
 
-def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_k_ref, vector):
+def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_k_fb, vector):
 
 
     # Get optimization variables
     q_opt = np.zeros((n_q, n_random, n_shooting + 1))
     qdot_opt = np.zeros((n_q, n_random, n_shooting + 1))
     muscle_opt = np.zeros((n_muscles, n_shooting))
-    k_fb_opt = np.zeros((n_k_ref, n_shooting))
+    k_fb_opt = np.zeros((n_k_fb, n_shooting))
     tau_opt = np.zeros((n_q, n_shooting))
 
     offset = 0
@@ -29,8 +29,8 @@ def get_variables_from_vector(n_q, n_random, n_shooting, n_muscles, n_k_ref, vec
             muscle_opt[:, i_node] = np.array(vector[offset : offset + n_muscles]).flatten()
             offset += n_muscles
 
-            k_fb_opt[:, i_node] = np.array(vector[offset : offset + n_k_ref]).flatten()
-            offset += n_k_ref
+            k_fb_opt[:, i_node] = np.array(vector[offset : offset + n_k_fb]).flatten()
+            offset += n_k_fb
 
             tau_opt[:, i_node] = np.array(vector[offset : offset + n_q]).flatten()
             offset += n_q
@@ -43,7 +43,7 @@ def get_states_and_controls(
     n_random,
     n_shooting,
     n_muscles,
-    n_k_ref,
+    n_k_fb,
     q_opt,
     qdot_opt,
     muscle_opt,
@@ -52,7 +52,7 @@ def get_states_and_controls(
 ):
     # Get optimization variables
     x_opt = np.zeros((n_q * 2 * n_random, n_shooting + 1))
-    u_opt = np.zeros((n_muscles + n_k_ref + n_q, n_shooting))
+    u_opt = np.zeros((n_muscles + n_k_fb + n_q, n_shooting))
 
     for i_node in range(n_shooting + 1):
         x_opt[: n_q * n_random, i_node] = q_opt[:, :, i_node].flatten(order="F")
@@ -61,8 +61,8 @@ def get_states_and_controls(
         if i_node < n_shooting:
             u_opt[:n_muscles, i_node] = muscle_opt[:, i_node].flatten()
             muscle_offset = n_muscles
-            u_opt[muscle_offset : muscle_offset + n_k_ref, i_node] = k_fb_opt[:, i_node].flatten()
-            gain_offset = muscle_offset + n_k_ref
+            u_opt[muscle_offset : muscle_offset + n_k_fb, i_node] = k_fb_opt[:, i_node].flatten()
+            gain_offset = muscle_offset + n_k_fb
             u_opt[gain_offset : gain_offset + n_q, i_node] = tau_opt[:, i_node].flatten()
             tau_offset = gain_offset + n_q
 
@@ -79,7 +79,7 @@ def save_socp_basic(
 
     n_q = socp_basic["model"].nb_q
     n_muscles = socp_basic["model"].nb_muscles
-    n_k_ref = socp_basic["model"].nb_k_ref
+    n_k_fb = socp_basic["model"].n_k_fb
     n_references = socp_basic["model"].n_references
     n_random = socp_basic["model"].n_random
 
@@ -92,23 +92,23 @@ def save_socp_basic(
 
     # Get optimization variables
     q_opt, qdot_opt, muscle_opt, k_fb_opt, tau_opt = get_variables_from_vector(
-        n_q, n_random, n_shooting, n_muscles, n_k_ref, w_opt
+        n_q, n_random, n_shooting, n_muscles, n_k_fb, w_opt
     )
     q0, qdot0, muscle0, k_fb0, tau0 = get_variables_from_vector(
-        n_q, n_random, n_shooting, n_muscles, n_k_ref, w0
+        n_q, n_random, n_shooting, n_muscles, n_k_fb, w0
     )
     lbq, lbqdot, lbmuscle, lbk_fb, lbtau = get_variables_from_vector(
-        n_q, n_random, n_shooting, n_muscles, n_k_ref, lbw
+        n_q, n_random, n_shooting, n_muscles, n_k_fb, lbw
     )
     ubq, ubqdot, ubmuscle, ubk_fb, ubtau = get_variables_from_vector(
-        n_q, n_random, n_shooting, n_muscles, n_k_ref, ubw
+        n_q, n_random, n_shooting, n_muscles, n_k_fb, ubw
     )
     x_opt, u_opt = get_states_and_controls(
         n_q,
         n_random,
         n_shooting,
         n_muscles,
-        n_k_ref,
+        n_k_fb,
         q_opt,
         qdot_opt,
         muscle_opt,
@@ -129,7 +129,7 @@ def save_socp_basic(
                 socp_basic["model"].qdot_indices_this_random(i_random), i_node
             ]
 
-    # Other info oin the optimization process
+    # Other info on the optimization process
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     computational_time = solver.stats()["t_proc_total"]
     nb_iterations = solver.stats()["iter_count"]
