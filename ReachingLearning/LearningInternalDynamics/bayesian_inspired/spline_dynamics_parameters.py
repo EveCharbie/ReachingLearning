@@ -1,6 +1,7 @@
 import pickle
 from pathlib import Path
 import threading
+import sys
 
 import numpy as np
 import matplotlib
@@ -39,6 +40,9 @@ class LivePlotter:
         self.running = False
         if self.thread:
             self.thread.join()
+
+        # Restore printing to the console
+        sys.stdout = sys.__stdout__
 
     def update_data(self, input_data=None, output_data=None, spline_model=None, reintegration_errors=None, xdot_errors=None):
         """Thread-safe data update"""
@@ -161,11 +165,12 @@ class LivePlotter:
             self.axs[0, 1].legend()
             self.axs[0, 1].set_yscale('log')
 
-    def save_figure(self):
+    def save_figure(self, sup_str: str = ""):
         """Save the current figure"""
         if self.fig:
+            self.fig.canvas.draw()
             current_path = Path(__file__).parent
-            spline_fig_path = f"{current_path}/../../../figures/LearningInternalDynamics/spline_parameters_learning_curve.png"
+            spline_fig_path = f"{current_path}/../../../figures/LearningInternalDynamics/spline_parameters_learning_curve_{sup_str}.png"
             self.fig.savefig(spline_fig_path)
 
 
@@ -194,6 +199,12 @@ class SplineParametersDynamicsLearner:
         if self.enable_plotting:
             self.plotter = LivePlotter()
             self.plotter.start()
+
+        # Set up the output file and redirect printing to this file
+        current_path = Path(__file__).parent
+        output_file_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_parameters_{str(self.smoothness).replace('.', 'p')}.txt"
+        self.output_file = open(output_file_path, 'w')
+        sys.stdout = self.output_file
 
     def update(self, x_samples, M_real, N_real):
         """
@@ -290,11 +301,11 @@ class SplineParametersDynamicsLearner:
         Save the learned model to a file.
         """
         current_path = Path(__file__).parent
-        spline_model_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_model.pkl"
+        spline_model_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_model_{str(self.smoothness).replace('.', 'p')}.pkl"
 
         # Stop plotter before saving
         if self.enable_plotting and self.plotter:
-            self.plotter.save_figure()
+            self.plotter.save_figure(sup_str=f"{str(self.smoothness).replace('.', 'p')}")
 
         with open(spline_model_path, 'wb') as f:
             pickle.dump(self, f)
@@ -305,7 +316,7 @@ class SplineParametersDynamicsLearner:
             self.plotter.stop()
 
 
-def train_spline_dynamics_parameters_learner():
+def train_spline_dynamics_parameters_learner(smoothness):
     np.random.seed(0)
 
     # Constants
@@ -318,7 +329,7 @@ def train_spline_dynamics_parameters_learner():
     real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
 
     # Initialize the Bayesian learner
-    learner = SplineParametersDynamicsLearner(nb_q, enable_plotting=True)
+    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=True)
 
     # Learn ten episodes
     for i_learn in range(10):
