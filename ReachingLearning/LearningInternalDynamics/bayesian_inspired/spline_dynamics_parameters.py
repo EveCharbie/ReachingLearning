@@ -2,6 +2,7 @@ import pickle
 from pathlib import Path
 import threading
 import sys
+import time
 
 import numpy as np
 import matplotlib
@@ -41,9 +42,6 @@ class LivePlotter:
         if self.thread:
             self.thread.join()
 
-        # Restore printing to the console
-        sys.stdout = sys.__stdout__
-
     def update_data(self, input_data=None, output_data=None, spline_model=None, reintegration_errors=None, xdot_errors=None):
         """Thread-safe data update"""
         with self.lock:
@@ -82,7 +80,7 @@ class LivePlotter:
 
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()
-            plt.pause(0.1)
+            time.sleep(0.1)
 
         plt.ioff()
 
@@ -168,10 +166,29 @@ class LivePlotter:
     def save_figure(self, sup_str: str = ""):
         """Save the current figure"""
         if self.fig:
-            self.fig.canvas.draw()
+            # with self.lock:
+            #     # Temporarily switch to Agg backend for saving
+            #     import matplotlib
+            #     original_backend = matplotlib.get_backend()
+            #
+            #     # Change to Agg backend
+            #     matplotlib.use('Agg', force=True)
+
+            self.running = False
+            if self.thread:
+                self.thread.join()
+
+            # self.fig.canvas.draw()
+
+            # Actually save the figure
             current_path = Path(__file__).parent
             spline_fig_path = f"{current_path}/../../../figures/LearningInternalDynamics/spline_parameters_learning_curve_{sup_str}.png"
             self.fig.savefig(spline_fig_path)
+            # plt.close(self.fig)
+            # self.fig = None
+
+            # # Switch back to original backend
+            # matplotlib.use(original_backend, force=True)
 
 
 class SplineParametersDynamicsLearner:
@@ -200,11 +217,14 @@ class SplineParametersDynamicsLearner:
             self.plotter = LivePlotter()
             self.plotter.start()
 
-        # Set up the output file and redirect printing to this file
-        current_path = Path(__file__).parent
-        output_file_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_parameters_{str(self.smoothness).replace('.', 'p')}.txt"
-        self.output_file = open(output_file_path, 'w')
-        sys.stdout = self.output_file
+    def from_learned_parameters(self, learned_parameters: dict[str, any]) -> "Self":
+        """Load learned parameters from a dictionary"""
+        self.input_training_data = learned_parameters["input_training_data"]
+        self.output_training_data = learned_parameters["output_training_data"]
+        self.spline_model = learned_parameters["spline_model"]
+        self.xdot_errors = learned_parameters["xdot_errors"]
+        self.reintegration_errors = learned_parameters["reintegration_errors"]
+        return self
 
     def update(self, x_samples, M_real, N_real):
         """
@@ -308,12 +328,30 @@ class SplineParametersDynamicsLearner:
             self.plotter.save_figure(sup_str=f"{str(self.smoothness).replace('.', 'p')}")
 
         with open(spline_model_path, 'wb') as f:
-            pickle.dump(self, f)
+            output = {
+                "input_training_data": self.input_training_data,
+                "output_training_data": self.output_training_data,
+                "spline_model": self.spline_model,
+                "xdot_errors": self.xdot_errors,
+                "reintegration_errors": self.reintegration_errors,
+            }
+            pickle.dump(output, f)
 
     def __del__(self):
         """Cleanup plotter on deletion"""
         if self.enable_plotting and self.plotter:
             self.plotter.stop()
+
+def get_tau_opt(q: np.ndarray, qdot: np.ndarray, muscles: np.ndarray) -> np.ndarray:
+    import biorbd
+    current_path = Path(__file__).parent
+    model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
+    biorbd_model = biorbd.Biorbd(model_path)
+
+    tau_opt = np.zeros((q.shape[0], muscles.shape[1]))
+    for i_node in range(muscles.shape[1]):
+        tau_opt[:, i_node] = biorbd_model.muscles.joint_torque(muscles[:, i_node], q[:, i_node], qdot[:, i_node])
+    return tau_opt
 
 
 def train_spline_dynamics_parameters_learner(smoothness):
@@ -355,8 +393,14 @@ def train_spline_dynamics_parameters_learner(smoothness):
             N_real=N_real,
         )
 
+    # Set up the output file and redirect printing to this file
+    current_path = Path(__file__).parent
+    output_file_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_parameters_{str(smoothness).replace('.', 'p')}.txt"
+    output_file = open(output_file_path, 'w')
+    sys.stdout = output_file
+
     # Track learning progress
-    for i_episode in range(1000):
+    for i_episode in range(10):
 
         # Generate random data to compare against
         x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
@@ -378,7 +422,7 @@ def train_spline_dynamics_parameters_learner(smoothness):
         reintegration_error_norm = np.linalg.norm(x_integrated_approx - x_integrated_real, axis=0) * 180 / np.pi
         reintegration_errors_this_time = np.mean(reintegration_error_norm)
         learner.add_errors(xdot_errors_this_time, reintegration_errors_this_time)
-        print(f"{i_episode} --- xdot error: {xdot_errors_this_time:.6f} [{np.min(xdot_error_norm)}, {np.max(xdot_error_norm)}]")
+        print(f"{i_episode} --- reintegration error: {reintegration_errors_this_time:.6f} [{np.min(reintegration_error_norm)}, {np.max(reintegration_error_norm)}] deg")
 
         # Update the Bayesian model with new observations
         learner.update(
@@ -390,7 +434,81 @@ def train_spline_dynamics_parameters_learner(smoothness):
     print("-----------------------------------------------------")
     print("Learning complete!")
     learner.save_model()
-
-    # Keep plot open
-    input("Press Enter to close...")
     learner.plotter.stop()
+
+    # Close the file and restore printing to the console
+    sys.stdout = sys.__stdout__
+    output_file.close()
+
+
+def evaluate_spline_dynamics_parameters(smoothness: float = 0.1):
+    """Test loading the saved model"""
+
+    # Load the model
+    current_path = Path(__file__).parent
+    spline_model_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_model_{str(smoothness).replace('.', 'p')}.pkl"
+    with open(spline_model_path, 'rb') as f:
+        learned_parameters = pickle.load(f)
+    learner = SplineParametersDynamicsLearner(nb_q=2, smoothness=smoothness, enable_plotting=False).from_learned_parameters(learned_parameters)
+
+    # Load the OCP kinematics to test the error
+    ocp_file_path = f"{current_path}/../../../results/StochasticOptimalControl/ocp_forcefield0_CIRCLE_CVG_1p0e-06.pkl"
+    with open(ocp_file_path, 'rb') as file:
+        ocp_sol = pickle.load(file)
+
+     # Extract the optimal trajectories
+    q = ocp_sol["q_opt"]
+    qdot = ocp_sol["qdot_opt"]
+    muscles = ocp_sol["muscle_opt"]
+    time_vector = ocp_sol["time_vector"]
+    dt = time_vector[1] - time_vector[0]
+
+    # Get the real dynamics
+    real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
+
+    # TODO: this step should be added in the model (a, q, qdot -> Tau)
+    u = get_tau_opt(q, qdot, muscles)
+
+    # Evaluate the error made by the approximate dynamics
+    x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
+        np.hstack((q[:, 0], qdot[:, 0])),
+        u,
+        dt,
+        current_forward_dyn=learner.forward_dyn,
+        real_forward_dyn=real_forward_dyn,
+        inv_mass_matrix_func=inv_mass_matrix_func,
+        nl_effect_vector_func=nl_effect_vector_func,
+    )
+
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+    axs[0, 0].plot(time_vector, x_integrated_approx[0, :], '-c', label='Approx x')
+    axs[0, 0].plot(time_vector, x_integrated_real[0, :], '-b', label='Real x')
+    axs[0, 0].plot(time_vector[:-1], xdot_approx[0, :], '-m', label='Approx xdot')
+    axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '-r', label='Real xdot')
+    axs[0, 0].set_title("Q1")
+
+    axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx q')
+    axs[0, 1].plot(time_vector, x_integrated_real[1, :], '-b', label='Real q')
+    axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx qdot')
+    axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '-r', label='Real qdot')
+    axs[0, 1].set_title("Q2")
+
+    axs[1, 0].plot(time_vector, x_integrated_approx[2, :], '-c', label='Approx x')
+    axs[1, 0].plot(time_vector, x_integrated_real[2, :], '-b', label='Real x')
+    axs[1, 0].plot(time_vector[:-1], xdot_approx[2, :], '-m', label='Approx xdot')
+    axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '-r', label='Real xdot')
+    axs[1, 0].set_title("Qdot1")
+
+    axs[1, 1].plot(time_vector, x_integrated_approx[3, :], '-c', label='Approx x')
+    axs[1, 1].plot(time_vector, x_integrated_real[3, :], '-b', label='Real x')
+    axs[1, 1].plot(time_vector[:-1], xdot_approx[3, :], '-m', label='Approx xdot')
+    axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '-r', label='Real xdot')
+    axs[1, 1].set_title("Qdot2")
+
+    axs[0, 1].legend()
+    fig_path = f"{current_path}/../../../figures/LearningInternalDynamics/spline_dynamics_model_evaluation_{str(smoothness).replace('.', 'p')}.png"
+    plt.savefig(fig_path)
+
+
+
+
