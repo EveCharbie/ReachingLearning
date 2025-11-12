@@ -12,7 +12,7 @@ from scipy.interpolate import RBFInterpolator
 import casadi as cas
 
 
-from .utils import get_the_real_dynamics, integrate_the_dynamics, generate_random_data
+from .utils import get_the_real_dynamics, integrate_the_dynamics, generate_random_data, get_the_real_marker_position
 
 from ...StochasticOptimalControl.deterministic.deterministic_OCP import prepare_ocp
 from ...StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp
@@ -228,53 +228,62 @@ class SplineParametersDynamicsLearner:
         M_real: array of shape (n_samples, 2, 2) - true mass matrix
         N_real: array of shape (n_samples, 2) - true non-linear effects vector
         """
-        # Concatenate state and control as features
-        input_new = x_samples
-
-        # Add to training data
-        if self.input_training_data is None:
-            self.input_training_data = input_new
+        # Get the good samples
+        good_indices = np.where(np.logical_and(np.logical_and(np.logical_and(
+            x_samples[:, 0] > 0,
+            x_samples[:, 0] < np.pi / 2),
+            x_samples[:, 1] > 0),
+            x_samples[:, 1] < 7/8 * np.pi)
+        )
+        if len(good_indices[0]) == 0:
+            return
         else:
-            self.input_training_data = np.vstack((self.input_training_data, input_new))
+            input_new = x_samples[good_indices[0], :]
 
-        if self.output_training_data["M11"] is None:
-            self.output_training_data["M11"] = M_real[:, 0, 0]
-            self.output_training_data["M12"] = M_real[:, 0, 1]
-            self.output_training_data["M22"] = M_real[:, 1, 1]
-            self.output_training_data["N1"] = N_real[:, 0]
-            self.output_training_data["N2"] = N_real[:, 1]
-        else:
-            self.output_training_data["M11"] = np.hstack((self.output_training_data["M11"], M_real[:, 0, 0]))
-            self.output_training_data["M12"] = np.hstack((self.output_training_data["M12"], M_real[:, 0, 1]))
-            self.output_training_data["M22"] = np.hstack((self.output_training_data["M22"], M_real[:, 1, 1]))
-            self.output_training_data["N1"] = np.hstack((self.output_training_data["N1"], N_real[:, 0]))
-            self.output_training_data["N2"] = np.hstack((self.output_training_data["N2"], N_real[:, 1]))
+            # Add to training data
+            if self.input_training_data is None:
+                self.input_training_data = input_new
+            else:
+                self.input_training_data = np.vstack((self.input_training_data, input_new))
 
-        # Retrain the spline model
-        for key in ["M11", "M12", "M22", "N1", "N2"]:
-            worked = False
-            while not worked and self.input_training_data.shape[0] > 0:
-                try:
-                    self.spline_model[key] = RBFInterpolator(
-                        self.input_training_data,
-                        self.output_training_data[key],
-                        smoothing=self.smoothness,
-                        kernel=self.kernel,
-                    )
-                    worked = True
-                except:
-                    print(f"Warning: could not fit spline for {key} with current data, so we remove data points.")
-                    worked = False
-                    self.input_training_data = self.input_training_data[:-1, :]
-                    self.output_training_data[key] = self.output_training_data[key][:-1]
+            if self.output_training_data["M11"] is None:
+                self.output_training_data["M11"] = M_real[good_indices[0], 0, 0]
+                self.output_training_data["M12"] = M_real[good_indices[0], 0, 1]
+                self.output_training_data["M22"] = M_real[good_indices[0], 1, 1]
+                self.output_training_data["N1"] = N_real[good_indices[0], 0]
+                self.output_training_data["N2"] = N_real[good_indices[0], 1]
+            else:
+                self.output_training_data["M11"] = np.hstack((self.output_training_data["M11"], M_real[good_indices[0], 0, 0]))
+                self.output_training_data["M12"] = np.hstack((self.output_training_data["M12"], M_real[good_indices[0], 0, 1]))
+                self.output_training_data["M22"] = np.hstack((self.output_training_data["M22"], M_real[good_indices[0], 1, 1]))
+                self.output_training_data["N1"] = np.hstack((self.output_training_data["N1"], N_real[good_indices[0], 0]))
+                self.output_training_data["N2"] = np.hstack((self.output_training_data["N2"], N_real[good_indices[0], 1]))
 
-        # Update plotter
-        if self.enable_plotting and self.plotter:
-            self.plotter.update_data(
-                input_data=self.input_training_data,
-                output_data=self.output_training_data,
-                spline_model=self.spline_model
-            )
+            # Retrain the spline model
+            for key in ["M11", "M12", "M22", "N1", "N2"]:
+                worked = False
+                while not worked and self.input_training_data.shape[0] > 0:
+                    try:
+                        self.spline_model[key] = RBFInterpolator(
+                            self.input_training_data,
+                            self.output_training_data[key],
+                            smoothing=self.smoothness,
+                            kernel=self.kernel,
+                        )
+                        worked = True
+                    except:
+                        print(f"Warning: could not fit spline for {key} with current data, so we remove data points.")
+                        worked = False
+                        self.input_training_data = self.input_training_data[:-1, :]
+                        self.output_training_data[key] = self.output_training_data[key][:-1]
+
+            # Update plotter
+            if self.enable_plotting and self.plotter:
+                self.plotter.update_data(
+                    input_data=self.input_training_data,
+                    output_data=self.output_training_data,
+                    spline_model=self.spline_model
+                )
 
     def add_errors(self, xdot_errors, reintegration_errors):
         """Add an error measurement"""
@@ -323,12 +332,12 @@ class SplineParametersDynamicsLearner:
         """
         nb_resampling = 10
 
-        # Create a constant meshgrid
-        min_input = np.min(self.input_training_data, axis=1)
-        max_input = np.max(self.input_training_data, axis=1)
+        # Creating a fixed meshgrid over the RoM as CasADi is a fucker and returns zero instead of extrapolating !
         input_resampled = np.zeros((nb_resampling, self.nb_q * 2))
-        for i in range(self.nb_q * 2):
-            input_resampled[:, i] = np.linspace(min_input[i], max_input[i], nb_resampling)
+        input_resampled[:, 0] = np.linspace(0, np.pi/2, nb_resampling)
+        input_resampled[:, 1] = np.linspace(0, 7/8 * np.pi, nb_resampling)
+        input_resampled[:, 2] = np.linspace(-10 * np.pi, 10 * np.pi, nb_resampling)
+        input_resampled[:, 3] = np.linspace(-10 * np.pi, 10 * np.pi, nb_resampling)
         gridq1, gridq2, gridqdot1, gridqdot2 = np.meshgrid(
             input_resampled[:, 0],
             input_resampled[:, 1],
@@ -361,14 +370,8 @@ class SplineParametersDynamicsLearner:
         import biorbd_casadi
         current_path = Path(__file__).parent
         model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
-        biorbd_model = biorbd_casadi.Model(model_path)
-
-        muscles_states = biorbd_model.stateSet()
-        for i_muscle in range(biorbd_model.nbMuscles()):
-            muscles_states[i_muscle].setActivation(U[i_muscle])
-        q_biorbd = biorbd_casadi.GeneralizedCoordinates(X[:self.nb_q])
-        qdot_biorbd = biorbd_casadi.GeneralizedVelocity(X[self.nb_q:])
-        tau = biorbd_model.muscularJointTorque(muscles_states, q_biorbd, qdot_biorbd).to_mx()
+        biorbd_model = biorbd_casadi.Biorbd(model_path)
+        tau = biorbd_model.muscles.joint_torque(U, X[:self.nb_q], X[self.nb_q:])
 
         M11 = lut["M11"](X)
         M12 = lut["M12"](X)
@@ -385,7 +388,8 @@ class SplineParametersDynamicsLearner:
         dq = X[self.nb_q:].reshape((2, 1))
         dqdot = cas.mtimes(inv_mass_matrix, cas.reshape(tau - nonlinear_effects, (2, 1)))
         xdot_estimate = cas.vertcat(dq, dqdot)
-        return cas.Function("forward_dyn", [X, U], [xdot_estimate])
+        forward_dyn_fcn = cas.Function("forward_dyn", [X, U], [xdot_estimate])
+        return forward_dyn_fcn
 
     def save_model(self, str_sup: str = ""):
         """
@@ -583,7 +587,7 @@ def evaluate_spline_dynamics_parameters(smoothness: float = 0.1):
 
 def train_spline_dynamics_parameters_ocp(smoothness):
     # TODO: add uncertainty (modeling) on the end_effector_position function
-    np.random.seed(0)
+    np.random.seed(42)
 
     # Constants
     final_time = 0.8
@@ -592,15 +596,17 @@ def train_spline_dynamics_parameters_ocp(smoothness):
     n_shooting = int(final_time / dt)
     hand_error_threshold = 0.01  # 1 cm
     tol = 1e-6
+    motor_noise = 0.05
 
     # Get the real dynamics
     real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
+    real_marker_func = get_the_real_marker_position()
 
     # Initialize the Spline parameter learner
-    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=True)
+    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=False)
 
     # Learn ten episodes
-    for i_learn in range(3):
+    for i_learn in range(10):
 
         # Generate random data to initially train on
         x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
@@ -623,11 +629,11 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             N_real=N_real,
         )
 
-    # Set up the output file and redirect printing to this file
+    # # Set up the output file and redirect printing to this file
     current_path = Path(__file__).parent
-    output_file_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_parameters_OCP.txt"
-    output_file = open(output_file_path, 'w')
-    sys.stdout = output_file
+    # output_file_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_parameters_OCP.txt"
+    # output_file = open(output_file_path, 'w')
+    # sys.stdout = output_file
 
     # Track learning progress
     hand_position_error = np.inf
@@ -647,10 +653,31 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             pre_optim_plot=False,
             show_online_optim=False,
         )
-        save_path_ocp = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.pkl"
-        variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
-        x0_this_time = np.hstack((variable_data["q_opt"][:, 0], variable_data["q_opt"][:, 0]))
-        u_this_time = get_tau_opt(variable_data["q_opt"], variable_data["qdot_opt"], variable_data["muscle_opt"])
+        if solver.stats()["success"]:
+            # We use the optimal solution
+            save_path_ocp = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.pkl"
+            variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
+            x0_this_time = np.hstack((variable_data["q_opt"][:, 0], variable_data["qdot_opt"][:, 0]))
+            tau_this_time = get_tau_opt(variable_data["q_opt"], variable_data["qdot_opt"], variable_data["muscle_opt"])
+            u_this_time = tau_this_time
+            # u_this_time = tau_this_time + np.random.normal(
+            #     loc=np.zeros(tau_this_time.shape),
+            #     scale=motor_noise,
+            #     size=tau_this_time.shape
+            # )
+            time_vector = variable_data["time_vector"]
+
+            # Get the hand trajectory of the optimal solution
+            opt_end_effector_position = np.zeros((2, n_shooting + 1))
+            for i_shooting in range(n_shooting + 1):
+                opt_end_effector_position[:, i_shooting] = np.array(real_marker_func(variable_data["q_opt"][:, i_shooting])).reshape(2, )
+            converged = True
+        else:
+            # We generate random data to train the model since the OCP did not converge
+            x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
+            time_vector = np.linspace(0, final_time, n_shooting + 1)
+            opt_end_effector_position = np.zeros((2, n_shooting + 1))
+            converged = False
 
         # Evaluate the error made by the approximate dynamics
         x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
@@ -671,17 +698,57 @@ def train_spline_dynamics_parameters_ocp(smoothness):
         learner.add_errors(xdot_errors_this_time, reintegration_errors_this_time)
 
         # Compute the hand position error at final time
-        hand_position_real = get_dm_value(
-            ocp["model"].end_effector_position,
-            [x_integrated_real[:nb_q, -1]],
-        )
-        hand_position_error = np.linalg.norm(TARGET_END - hand_position_real)
+        hand_position_real = np.zeros((2, n_shooting + 1))
+        for i_shooting in range(n_shooting + 1):
+            hand_position_real[:, i_shooting] = np.array(
+                real_marker_func(x_integrated_real[:2, i_shooting])).reshape(2, )
+        hand_position_error = np.linalg.norm(TARGET_END - hand_position_real[:, -1])
+
+        fig, axs = plt.subplots(2, 3, figsize=(10, 8))
+        axs[0, 0].plot(time_vector, x_integrated_approx[0, :], '-c', label='Approx x')
+        axs[0, 0].plot(time_vector, x_integrated_real[0, :], '-b', label='Real x')
+        axs[0, 0].plot(time_vector[:-1], xdot_approx[0, :], '-m', label='Approx xdot')
+        axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '-r', label='Real xdot')
+        if converged:
+            axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], '-g', label='Real xdot')
+        axs[0, 0].set_title("Q1")
+
+        axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx q')
+        axs[0, 1].plot(time_vector, x_integrated_real[1, :], '-b', label='Real q')
+        axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx qdot')
+        axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '-r', label='Real qdot')
+        if converged:
+            axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], '-g', label='Real xdot')
+        axs[0, 1].set_title("Q2")
+
+        axs[1, 0].plot(time_vector, x_integrated_approx[2, :], '-c', label='Approx x')
+        axs[1, 0].plot(time_vector, x_integrated_real[2, :], '-b', label='Real x')
+        axs[1, 0].plot(time_vector[:-1], xdot_approx[2, :], '-m', label='Approx xdot')
+        axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '-r', label='Real xdot')
+        if converged:
+            axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], '-g', label='Real xdot')
+        axs[1, 0].set_title("Qdot1")
+
+        axs[1, 1].plot(time_vector, x_integrated_approx[3, :], '-c', label='Approx x')
+        axs[1, 1].plot(time_vector, x_integrated_real[3, :], '-b', label='Real x')
+        axs[1, 1].plot(time_vector[:-1], xdot_approx[3, :], '-m', label='Approx xdot')
+        axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '-r', label='Real xdot')
+        if converged:
+            axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], '-g', label='Real xdot')
+        axs[1, 1].set_title("Qdot2")
+
+        axs[0, 1].legend()
+
+        axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '-g', label='Real hand trajectory')
+        axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], '-b', label='Real hand trajectory')
+        axs[0, 2].plot(TARGET_END[0], TARGET_END[1], 'or', label='Target')
+        plt.show()
 
         sys.stdout = sys.__stdout__
         print(f"{i_episode} --- reintegration error: "
               f"{reintegration_errors_this_time:.6f} [{np.min(reintegration_error_norm)}, {np.max(reintegration_error_norm)}] deg"
               f"--- hand position error: {hand_position_error * 100:.6f} cm")
-        sys.stdout = output_file
+        # sys.stdout = output_file
         print(f"{i_episode} --- reintegration error: "
               f"{reintegration_errors_this_time:.6f} [{np.min(reintegration_error_norm)}, {np.max(reintegration_error_norm)}] deg"
               f"--- hand position error: {hand_position_error * 100:.6f} cm")
@@ -693,14 +760,15 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             N_real=N_real,
         )
         i_episode += 1
+        del ocp
 
     print("-----------------------------------------------------")
     print("Learning complete!")
     learner.save_model(str_sup=f"_OCP")
     learner.plotter.stop()
 
-    # Close the file and restore printing to the console
-    sys.stdout = sys.__stdout__
-    output_file.close()
+    # # Close the file and restore printing to the console
+    # sys.stdout = sys.__stdout__
+    # output_file.close()
 
 

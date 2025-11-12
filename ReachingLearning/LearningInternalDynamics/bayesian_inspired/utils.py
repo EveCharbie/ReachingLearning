@@ -33,6 +33,17 @@ def get_the_real_dynamics():
 
     return real_dynamics, inv_mass_matrix_func, nl_effect_vector_func
 
+def get_the_real_marker_position():
+    current_path = Path(__file__).parent
+    model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
+    biorbd_model = biorbd.Model(model_path)
+    nb_q = biorbd_model.nbQ()
+    Q = cas.MX.sym("q", nb_q)
+
+    marker_index = biorbd.marker_index(biorbd_model, "end_effector")
+    real_marker_func = cas.Function("marker", [Q], [biorbd_model.marker(Q, marker_index).to_mx()[:2]])
+
+    return real_marker_func
 
 def integrate_the_dynamics(
         x0: np.ndarray,
