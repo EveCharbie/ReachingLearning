@@ -67,7 +67,14 @@ def integrate_the_dynamics(
     for i_node in range(n_shooting):
         if current_forward_dyn is None:
             x_integrated_approx = None
-        else:
+        elif (
+                x_integrated_approx[0, i_node] > 0 and
+                x_integrated_approx[0, i_node] < np.pi / 2 and
+                x_integrated_approx[1, i_node] > 0 and
+                x_integrated_approx[1, i_node] < 7/8 * np.pi and
+                abs(x_integrated_approx[2, i_node]) < 10 * np.pi and
+                abs(x_integrated_approx[3, i_node]) < 10 * np.pi
+            ):
             x_integrated_approx[:, i_node + 1] = (
                 RK4(
                     x_prev=x_integrated_approx[:, i_node],
@@ -78,6 +85,8 @@ def integrate_the_dynamics(
                     n_steps=5
                 )
             )[-1, :]
+        else:
+            x_integrated_approx[:, i_node + 1] = np.nan
         x_integrated_real[:, i_node + 1] = (
             RK4(
                 x_prev=x_integrated_real[:, i_node],
@@ -91,12 +100,21 @@ def integrate_the_dynamics(
 
         if current_forward_dyn is None:
             xdot_approx = None
-        else:
+        elif (
+                x_integrated_real[0, i_node] > 0 and
+                x_integrated_real[0, i_node] < np.pi / 2 and
+                x_integrated_real[1, i_node] > 0 and
+                x_integrated_real[1, i_node] < 7 / 8 * np.pi and
+                abs(x_integrated_real[2, i_node]) < 10 * np.pi and
+                abs(x_integrated_real[3, i_node]) < 10 * np.pi
+        ):
             xdot_approx[:, i_node] = np.array(current_forward_dyn(
                 x_integrated_real[:, i_node],
                 u[:, i_node],
                 np.zeros((nb_q,)),
             )).reshape(-1, )
+        else:
+            xdot_approx[:, i_node] = np.nan
         xdot_real[:, i_node] = np.array(real_forward_dyn(
             x_integrated_real[:, i_node],
             u[:, i_node],
@@ -105,6 +123,45 @@ def integrate_the_dynamics(
         M_real[i_node, :, :] = np.array(inv_mass_matrix_func(x_integrated_real[:, i_node]))
         N_real[i_node, :] = np.array(nl_effect_vector_func(x_integrated_real[:, i_node])).reshape(2, )
     return x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real
+
+
+def integrate_MS(
+        x_opt: np.ndarray,
+        u: np.ndarray,
+        dt: float,
+        current_forward_dyn,
+        real_forward_dyn: cas.Function,
+):
+    nb_q = 2
+    n_steps = 5
+    n_shooting = u.shape[1]
+    x_integrated_approx_MS = np.zeros((2 * nb_q, (n_steps+1) * n_shooting))
+    x_integrated_approx_MS[:, 0] = x_opt[:, 0]
+    x_integrated_real_MS = np.zeros((2 * nb_q, (n_steps+1) * n_shooting))
+    x_integrated_real_MS[:, 0] = x_opt[:, 0]
+    for i_node in range(n_shooting):
+        x_integrated_approx_MS[:, (n_steps+1) * i_node: (n_steps+1) * (i_node + 1)] = (
+            RK4(
+                x_prev=x_opt[:, i_node],
+                u=u[:, i_node],
+                dt=dt,
+                motor_noise=np.zeros((nb_q,)),
+                forward_dyn_func=current_forward_dyn,
+                n_steps=n_steps
+            )
+        ).T
+        x_integrated_real_MS[:, (n_steps+1) * i_node: (n_steps+1) * (i_node + 1)] = (
+            RK4(
+                x_prev=x_opt[:, i_node],
+                u=u[:, i_node],
+                dt=dt,
+                motor_noise=np.zeros((nb_q,)),
+                forward_dyn_func=real_forward_dyn,
+                n_steps=n_steps
+            )
+        ).T
+
+    return x_integrated_approx_MS, x_integrated_real_MS
 
 
 def generate_random_data(nb_q, n_shooting):
