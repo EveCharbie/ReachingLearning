@@ -293,7 +293,8 @@ class SplineParametersDynamicsLearner:
 
     def predict(self, x, u):
         """
-        Predict state derivative xdot = f(x, u) using the learned GP models.
+        Predict state derivative xdot = f(x, u) using the learned spline parameters model.
+        This function is to be used to evaluate the dynamics after the optimization
 
         Parameters
         ----------
@@ -307,15 +308,15 @@ class SplineParametersDynamicsLearner:
         # Create feature vector
         input_test = x.reshape(1, -1)
 
-        M11 = self.spline_model["M11"](input_test)[0]
-        M12 = self.spline_model["M12"](input_test)[0]
-        M22 = self.spline_model["M22"](input_test)[0]
+        M11 = np.array(self.spline_model["M11"](input_test)[0])
+        M12 = np.array(self.spline_model["M12"](input_test)[0])
+        M22 = np.array(self.spline_model["M22"](input_test)[0])
         inv_mass_matrix = np.array([[M11, M12],
-                                [M12, M22]])
+                                [M12, M22]]).reshape(2, 2)
 
-        N1 = self.spline_model["N1"](input_test)[0]
-        N2 = self.spline_model["N2"](input_test)[0]
-        nonlinear_effects = np.array([N1, N2])
+        N1 = np.array(self.spline_model["N1"](input_test)[0])
+        N2 = np.array(self.spline_model["N2"](input_test)[0])
+        nonlinear_effects = np.array([N1, N2]).reshape(2, )
 
         dq = x[self.nb_q:].reshape(2, 1)
         dqdot = inv_mass_matrix @ np.reshape(u - nonlinear_effects, (2, 1))
@@ -328,6 +329,7 @@ class SplineParametersDynamicsLearner:
     def casadi_forward_dyn_func(self) -> cas.Function:
         """
         Create an interpolant in casadi by evaluating the scipy one on an equal grid.
+        This function is to be used in the OCP.
         """
         nb_resampling = 10
 
@@ -370,7 +372,7 @@ class SplineParametersDynamicsLearner:
         current_path = Path(__file__).parent
         model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
         biorbd_model = biorbd_casadi.Biorbd(model_path)
-        tau = biorbd_model.muscles.joint_torque(U, X[:self.nb_q], X[self.nb_q:])
+        tau = biorbd_model.muscles.joint_torque(activations=U, q=X[:self.nb_q], qdot=X[self.nb_q:])
 
         M11 = lut["M11"](X)
         M12 = lut["M12"](X)
@@ -385,7 +387,7 @@ class SplineParametersDynamicsLearner:
         nonlinear_effects = cas.vertcat(N1, N2)
 
         dq = X[self.nb_q:].reshape((2, 1))
-        dqdot = cas.mtimes(inv_mass_matrix, cas.reshape(tau - nonlinear_effects, (2, 1)))
+        dqdot =inv_mass_matrix @ cas.reshape(tau - nonlinear_effects, 2, 1)
         xdot_estimate = cas.vertcat(dq, dqdot)
         forward_dyn_fcn = cas.Function("forward_dyn", [X, U], [xdot_estimate])
         return forward_dyn_fcn
@@ -424,7 +426,7 @@ def get_tau_opt(q: np.ndarray, qdot: np.ndarray, muscles: np.ndarray) -> np.ndar
 
     tau_opt = np.zeros((q.shape[0], muscles.shape[1]))
     for i_node in range(muscles.shape[1]):
-        tau_opt[:, i_node] = biorbd_model.muscles.joint_torque(muscles[:, i_node], q[:, i_node], qdot[:, i_node])
+        tau_opt[:, i_node] = biorbd_model.muscles.joint_torque(activations=muscles[:, i_node], q=q[:, i_node], qdot=qdot[:, i_node])
     return tau_opt
 
 
@@ -480,11 +482,12 @@ def train_spline_dynamics_parameters_learner(smoothness):
         x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
 
         # Evaluate the error made by the approximate dynamics
+        current_forward_dyn = learner.forward_dyn
         x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
             x0_this_time,
             u_this_time,
             dt,
-            current_forward_dyn=learner.forward_dyn,
+            current_forward_dyn=current_forward_dyn,
             real_forward_dyn=real_forward_dyn,
             inv_mass_matrix_func=inv_mass_matrix_func,
             nl_effect_vector_func=nl_effect_vector_func,
@@ -540,15 +543,16 @@ def evaluate_spline_dynamics_parameters(smoothness: float = 0.1):
     # Get the real dynamics
     real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
 
-    # TODO: this step should be added in the model (a, q, qdot -> Tau)
+    # TODO: this step should be added in the model (q, qdot, mus -> Tau)
     u = get_tau_opt(q, qdot, muscles)
 
     # Evaluate the error made by the approximate dynamics
+    current_forward_dyn = learner.forward_dyn
     x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
         np.hstack((q[:, 0], qdot[:, 0])),
         u,
         dt,
-        current_forward_dyn=learner.forward_dyn,
+        current_forward_dyn=current_forward_dyn,
         real_forward_dyn=real_forward_dyn,
         inv_mass_matrix_func=inv_mass_matrix_func,
         nl_effect_vector_func=nl_effect_vector_func,
@@ -684,11 +688,12 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             converged = False
 
         # Evaluate the error made by the approximate dynamics
+        current_forward_dyn = learner.forward_dyn
         x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
             x0_this_time,
             u_this_time,
             dt,
-            current_forward_dyn=learner.forward_dyn,
+            current_forward_dyn=current_forward_dyn,
             real_forward_dyn=real_forward_dyn,
             inv_mass_matrix_func=inv_mass_matrix_func,
             nl_effect_vector_func=nl_effect_vector_func,
@@ -714,15 +719,15 @@ def train_spline_dynamics_parameters_ocp(smoothness):
         axs[0, 0].plot(time_vector[:-1], xdot_approx[0, :], '-m', label='Approx xdot')
         axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '-r', label='Real xdot')
         if converged:
-            axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], '-g', label='Real xdot')
+            axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], '-g', label='Optimal xdot')
         axs[0, 0].set_title("Q1")
 
-        axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx q')
-        axs[0, 1].plot(time_vector, x_integrated_real[1, :], '-b', label='Real q')
-        axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx qdot')
-        axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '-r', label='Real qdot')
+        axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx x')
+        axs[0, 1].plot(time_vector, x_integrated_real[1, :], '-b', label='Real x')
+        axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx xdot')
+        axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '-r', label='Real xdot')
         if converged:
-            axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], '-g', label='Real xdot')
+            axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], '-g', label='Optimal x')
         axs[0, 1].set_title("Q2")
 
         axs[1, 0].plot(time_vector, x_integrated_approx[2, :], '-c', label='Approx x')
@@ -730,7 +735,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
         axs[1, 0].plot(time_vector[:-1], xdot_approx[2, :], '-m', label='Approx xdot')
         axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '-r', label='Real xdot')
         if converged:
-            axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], '-g', label='Real xdot')
+            axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], '-g', label='Optimal x')
         axs[1, 0].set_title("Qdot1")
 
         axs[1, 1].plot(time_vector, x_integrated_approx[3, :], '-c', label='Approx x')
@@ -738,7 +743,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
         axs[1, 1].plot(time_vector[:-1], xdot_approx[3, :], '-m', label='Approx xdot')
         axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '-r', label='Real xdot')
         if converged:
-            axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], '-g', label='Real xdot')
+            axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], '-g', label='Optimal x')
         axs[1, 1].set_title("Qdot2")
 
         axs[0, 1].legend()
