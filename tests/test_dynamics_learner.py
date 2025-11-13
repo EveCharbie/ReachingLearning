@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.testing as npt
+import matplotlib.pyplot as plt
 
 from ReachingLearning.LearningInternalDynamics.bayesian_inspired.utils import get_the_real_dynamics
 
@@ -25,3 +26,31 @@ def test_get_the_real_dynamics():
     npt.assert_almost_equal(inv_mass_eval @ np.linalg.inv(inv_mass_eval), np.eye(2))
     # Check that the mass matrix is symmetric
     npt.assert_almost_equal(inv_mass_eval[0, 1], inv_mass_eval[1, 0])
+
+
+def test_sample_task_from_circle():
+    from ReachingLearning.LearningInternalDynamics.bayesian_inspired.utils import sample_task_from_circle
+
+    home_position = np.array([-0.0212132, 0.445477])
+
+    targets_starts = np.zeros((100, 2))
+    targets_ends = np.zeros((100, 2))
+    for i_sample in range(100):
+        start, end = sample_task_from_circle()
+        targets_starts[i_sample, :] = np.array(start).reshape(2, )
+        targets_ends[i_sample, :] = np.array(end).reshape(2, )
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(targets_starts[:, 0], targets_starts[:, 1], '.g')
+    ax.plot(targets_ends[:, 0], targets_ends[:, 1], '.r')
+    circ = plt.Circle(home_position, 0.15, fill=False, linestyle="-")
+    ax.add_patch(circ)
+    ax.axis("equal")
+    plt.savefig("test_sample_task_from_circle.png")
+    plt.show()
+
+    dist_start = np.linalg.norm(targets_starts - home_position, axis=1)
+    dist_end = np.linalg.norm(targets_ends - home_position, axis=1)
+    npt.assert_array_less(dist_start, 0.15 + 1e-8)
+    npt.assert_array_less(dist_end, 0.15 + 1e-8)

@@ -1,0 +1,5 @@
+import numpy as np
+
+
+TARGET_START_VAN_WOUWE = np.array([0.00000000, 0.27420000])
+TARGET_END_VAN_WOUWE = np.array([0.00000000, 0.52730000])

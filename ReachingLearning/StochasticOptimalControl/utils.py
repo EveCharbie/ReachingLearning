@@ -20,6 +20,7 @@ def get_target_position(model) -> tuple[np.ndarray, np.ndarray]:
     """
     Get the initial and final hand position from the bioMod.
     Do not use this in the OCP as it will unnecessarily slow down the optimization (only for DM values).
+    TODO: remove this function and use the target_start and target_end values.
     """
     dymmy_variable = cas.MX.sym("dummy", 1)
     marker_start_index = biorbd.marker_index(model.biorbd_model, "hand_start")
@@ -30,6 +31,29 @@ def get_target_position(model) -> tuple[np.ndarray, np.ndarray]:
     hand_initial_position, hand_final_position = func(0)
     return hand_initial_position, hand_final_position
 
+def inverse_kinematics_target(model, target_pos: np.ndarray) -> np.ndarray:
+    """
+    Get the inverse kinematics function to reach the target position.
+    """
+    nb_q = model.nbQ()
+    q = cas.MX.sym("q", nb_q)
+
+    marker_index = biorbd.marker_index(model, "end_effector")
+    marker_pos = model.marker(q, marker_index).to_mx()[:2]
+
+    # inv kin
+    nlp = {"f": cas.sum1((marker_pos - target_pos) ** 2), "x": q}
+    solver = cas.nlpsol("solver", "ipopt", nlp)
+    sol = solver()
+    w_opt = sol["x"].full().flatten()
+
+    # Test with forward kinematics that everything was OK
+    func = cas.Function("forward_kin", [q], [model.marker(q, marker_index).to_mx()[:2]])
+    marker_pos_opt = func(w_opt)
+    if not np.allclose(marker_pos_opt.full().flatten(), target_pos.full().flatten(), atol=1e-6):
+        raise RuntimeError("Inverse kinematics did not converge to the target position.")
+
+    return np.array(w_opt)
 
 def get_dm_value(function, values):
     """

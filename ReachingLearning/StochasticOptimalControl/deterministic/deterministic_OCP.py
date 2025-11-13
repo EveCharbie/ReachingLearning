@@ -1,12 +1,16 @@
 import casadi as cas
 import numpy as np
 
-from ..utils import ExampleType
+from ..utils import ExampleType, inverse_kinematics_target
 from ..constraints_utils import reach_target, start_on_target
 from .deterministic_arm_model import DeterministicArmModel
+from ...constants import TARGET_START_VAN_WOUWE, TARGET_END_VAN_WOUWE
 
 
 def declare_variables(
+    model,
+    target_start: np.ndarray,
+    target_end: np.ndarray,
     n_shooting,
 ) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
     """
@@ -19,11 +23,13 @@ def declare_variables(
         - qdot: shoulder and elbow in [-10*np.pi, 10*np.pi]
         - muscle activations: all in [1e-6, 1]
     """
-    # Optimized in Tom's version
-    shoulder_pos_initial = 0.349065850398866
-    elbow_pos_initial = 2.245867726451909
-    shoulder_pos_final = 0.959931088596881
-    elbow_pos_final = 1.159394851847144
+    # Get the initial and final joint angles via inverse kinematics
+    q_initial = inverse_kinematics_target(model.biorbd_model, target_start)  # 0.349065850398866, 2.245867726451909
+    shoulder_pos_initial = q_initial[0]
+    elbow_pos_initial = q_initial[1]
+    q_final = inverse_kinematics_target(model.biorbd_model, target_end)  # 0.959931088596881, 1.159394851847144
+    shoulder_pos_final = q_final[0]
+    elbow_pos_final = q_final[1]
 
     joint_angles_init = np.zeros((2, n_shooting + 1))
     joint_angles_init[0, :] = np.linspace(shoulder_pos_initial, shoulder_pos_final, n_shooting + 1)  # Shoulder
@@ -92,6 +98,8 @@ def prepare_ocp(
     example_type=ExampleType.CIRCLE,
     n_threads: int = 12,
     forward_dynamics_func: cas.Function=None,
+    target_start: np.ndarray = TARGET_START_VAN_WOUWE,
+    target_end: np.ndarray = TARGET_END_VAN_WOUWE,
 ) -> dict[str, any]:
 
     # Model
@@ -102,7 +110,7 @@ def prepare_ocp(
     )
 
     # Variables
-    x, u, w, lbw, ubw, w0 = declare_variables(n_shooting)
+    x, u, w, lbw, ubw, w0 = declare_variables(model, target_start, target_end, n_shooting)
 
     # Start with an empty NLP
     j = 0
@@ -118,7 +126,7 @@ def prepare_ocp(
     multi_threaded_integrator = integration_func.map(n_shooting, "thread", n_threads)
 
     # Initial constraint
-    g_target, lbg_target, ubg_target = start_on_target(model, x[0])
+    g_target, lbg_target, ubg_target = start_on_target(model, x[0], target_start)
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
@@ -135,7 +143,7 @@ def prepare_ocp(
     j += cas.sum2(cas.sum1(cas.horzcat(*u) ** 2 * dt / 2))  # Minimize muscle activations
 
     # Terminal constraint
-    g_target, lbg_target, ubg_target = reach_target(model, x[-1], example_type)
+    g_target, lbg_target, ubg_target = reach_target(model, x[-1], example_type, target_end)
     g += g_target
     lbg += lbg_target
     ubg += ubg_target
@@ -158,5 +166,7 @@ def prepare_ocp(
         "final_time": final_time,
         "example_type": example_type,
         "force_field_magnitude": force_field_magnitude,
+        "start_target": target_start,
+        "end_target": target_end,
     }
     return ocp

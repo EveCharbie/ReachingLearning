@@ -5,7 +5,7 @@ matplotlib.use("TkAgg")  # or 'Qt5Agg'
 import casadi as cas
 import biorbd_casadi as biorbd
 
-from ...StochasticOptimalControl.utils import RK4
+from ...StochasticOptimalControl.utils import RK4, get_dm_value
 
 
 def get_the_real_dynamics():
@@ -118,3 +118,27 @@ def generate_random_data(nb_q, n_shooting):
     u_this_time = np.random.uniform(-1, 1, (nb_q, n_shooting))
     return x0_this_time, u_this_time
 
+
+def sample_task_from_circle():
+    """
+    Get a random reaching task where the start and end targets are sampled from a circle centered at the home position.
+    """
+    circle_radius = 0.15  # 15 cm
+
+    # Get the home position
+    current_path = Path(__file__).parent
+    model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
+    biorbd_model = biorbd.Biorbd(model_path)
+    marker_func = biorbd_model.markers["end_effector"].forward_kinematics
+    q_home = np.array([np.pi/4, np.pi/2])  # Wang et al. 2016
+    home_position = get_dm_value(marker_func, [q_home])[:2, 0]
+
+    # Get the random positions
+    random_start_radius = np.random.uniform(0, circle_radius)
+    random_start_angle = np.random.uniform(0, 2*np.pi)
+    random_end_radius = np.random.uniform(0, circle_radius)
+    random_end_angle = np.random.uniform(0, 2*np.pi)
+    start_position = home_position + random_start_radius * np.array([np.cos(random_start_angle), np.sin(random_start_angle)])
+    end_position = home_position + random_end_radius * np.array([np.cos(random_end_angle), np.sin(random_end_angle)])
+
+    return start_position, end_position

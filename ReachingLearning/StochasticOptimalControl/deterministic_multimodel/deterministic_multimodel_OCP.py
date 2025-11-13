@@ -1,21 +1,21 @@
 import casadi as cas
 import numpy as np
 
-from ..utils import ExampleType
+from ..utils import ExampleType, inverse_kinematics_target
 from ..constraints_utils import (
     mean_start_on_target,
     mean_reach_target,
     mean_end_effector_velocity,
-    TARGET_START,
-    TARGET_END,
 )
 from ..objectives_utils import (
     reach_target_consistently,
 )
 from .deterministic_multimodel_arm_model import DeterministicMultiArmModel
+from ...constants import TARGET_START_VAN_WOUWE, TARGET_END_VAN_WOUWE
 
 
 def declare_variables(
+    model: DeterministicMultiArmModel,
     n_shooting: int,
     n_random: int,
 ) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
@@ -33,19 +33,21 @@ def declare_variables(
     """
     n_q = 2
 
-    # Optimized in Tom's version
-    shoulder_pos_initial = 0.349065850398866
-    elbow_pos_initial = 2.245867726451909
-    shoulder_pos_final = 0.959931088596881
-    elbow_pos_final = 1.159394851847144
+    # Get the initial and final joint angles via inverse kinematics
+    q_initial = inverse_kinematics_target(model.biorbd_model, TARGET_START_VAN_WOUWE)  # 0.349065850398866, 2.245867726451909
+    shoulder_pos_initial = q_initial[0]
+    elbow_pos_initial = q_initial[1]
+    q_final = inverse_kinematics_target(model.biorbd_model, TARGET_END_VAN_WOUWE)  # 0.959931088596881, 1.159394851847144
+    shoulder_pos_final = q_final[0]
+    elbow_pos_final = q_final[1]
 
     joint_angles_init = np.zeros((2, n_shooting + 1))
     joint_angles_init[0, :] = np.linspace(shoulder_pos_initial, shoulder_pos_final, n_shooting + 1)  # Shoulder
     joint_angles_init[1, :] = np.linspace(elbow_pos_initial, elbow_pos_final, n_shooting + 1)  # Elbow
 
     ref_trajectory_init = np.zeros((4, n_shooting + 1))
-    ref_trajectory_init[0, :] = np.linspace(TARGET_START[0], TARGET_END[0], n_shooting + 1)  # Hand X position
-    ref_trajectory_init[1, :] = np.linspace(TARGET_START[1], TARGET_END[1], n_shooting + 1)  # Hand Y position
+    ref_trajectory_init[0, :] = np.linspace(TARGET_START_VAN_WOUWE[0], TARGET_END_VAN_WOUWE[0], n_shooting + 1)  # Hand X position
+    ref_trajectory_init[1, :] = np.linspace(TARGET_START_VAN_WOUWE[1], TARGET_END_VAN_WOUWE[1], n_shooting + 1)  # Hand Y position
 
     x = []
     u = []
@@ -160,7 +162,7 @@ def prepare_ocp_multimodel(
     )
 
     # Variables
-    x, u, w, lbw, ubw, w0 = declare_variables(n_shooting, n_random)
+    x, u, w, lbw, ubw, w0 = declare_variables(model, n_shooting, n_random)
     noises_numerical, noises_single = declare_noises(n_shooting, n_random, model.motor_noise_magnitude)
 
     # Start with an empty NLP

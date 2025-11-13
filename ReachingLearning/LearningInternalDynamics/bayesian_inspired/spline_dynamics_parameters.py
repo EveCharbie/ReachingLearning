@@ -12,12 +12,11 @@ from scipy.interpolate import RBFInterpolator
 import casadi as cas
 
 
-from .utils import get_the_real_dynamics, integrate_the_dynamics, generate_random_data, get_the_real_marker_position
+from .utils import get_the_real_dynamics, integrate_the_dynamics, generate_random_data, get_the_real_marker_position, sample_task_from_circle
 
 from ...StochasticOptimalControl.deterministic.deterministic_OCP import prepare_ocp
 from ...StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp
 from ...StochasticOptimalControl.utils import ExampleType, solve, get_dm_value
-from ...StochasticOptimalControl.constraints_utils import TARGET_END
 
 
 class LivePlotter:
@@ -640,12 +639,17 @@ def train_spline_dynamics_parameters_ocp(smoothness):
     i_episode = 0
     while hand_position_error > hand_error_threshold:
 
+        # Sample a task
+        target_start, target_end = sample_task_from_circle()
+
         # Generate reaching movement
         ocp = prepare_ocp(
             final_time=final_time,
             n_shooting=n_shooting,
             example_type=ExampleType.CIRCLE,
             forward_dynamics_func=learner.casadi_forward_dyn_func(),
+            target_start=target_start,
+            target_end=target_end,
         )
         w_opt, solver = solve(
             ocp,
@@ -702,7 +706,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
         for i_shooting in range(n_shooting + 1):
             hand_position_real[:, i_shooting] = np.array(
                 real_marker_func(x_integrated_real[:2, i_shooting])).reshape(2, )
-        hand_position_error = np.linalg.norm(TARGET_END - hand_position_real[:, -1])
+        hand_position_error = np.linalg.norm(target_end - hand_position_real[:, -1])
 
         fig, axs = plt.subplots(2, 3, figsize=(10, 8))
         axs[0, 0].plot(time_vector, x_integrated_approx[0, :], '-c', label='Approx x')
@@ -741,7 +745,8 @@ def train_spline_dynamics_parameters_ocp(smoothness):
 
         axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '-g', label='Real hand trajectory')
         axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], '-b', label='Real hand trajectory')
-        axs[0, 2].plot(TARGET_END[0], TARGET_END[1], 'or', label='Target')
+        axs[0, 2].plot(target_start[0], target_start[1], 'og', label='Target')
+        axs[0, 2].plot(target_end[0], target_end[1], 'or', label='Target')
         plt.show()
 
         sys.stdout = sys.__stdout__

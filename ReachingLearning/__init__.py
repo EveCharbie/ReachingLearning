@@ -1,3 +1,5 @@
+from .constants import TARGET_START_VAN_WOUWE, TARGET_END_VAN_WOUWE
+
 # --- StochasticOptimalControl --- #
 
 # models
