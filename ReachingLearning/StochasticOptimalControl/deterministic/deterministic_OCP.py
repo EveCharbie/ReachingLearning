@@ -108,6 +108,7 @@ def prepare_ocp(
         n_shooting=n_shooting,
         forward_dynamics_func=forward_dynamics_func,
     )
+    print("ocp : ", model.dynamics(np.array([0.1, 0.2, 0.3, 0.04]), np.array([0.1, 0.2, 0.3, 0.3, 0.2, 0.1])))
 
     # Variables
     x, u, w, lbw, ubw, w0 = declare_variables(model, target_start, target_end, n_shooting)

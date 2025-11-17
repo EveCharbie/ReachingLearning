@@ -333,7 +333,7 @@ class SplineParametersDynamicsLearner:
     def forward_dyn(self, x, u, motor_noise):
         return self.predict(x, u)
 
-    def casadi_forward_dyn_func(self) -> cas.Function:
+    def casadi_forward_dyn_func(self, iter_num: int) -> cas.Function:
         """
         Create an interpolant in casadi by evaluating the scipy one on an equal grid.
         This function is to be used in the OCP.
@@ -364,7 +364,7 @@ class SplineParametersDynamicsLearner:
                 gridqdot1.ravel(),
                 gridqdot2.ravel(),
             )).T)
-            lut[key] = cas.interpolant("lut", "bspline", [
+            lut[key] = cas.interpolant(f"lut_{iter_num}_{key}", "bspline", [
                     input_resampled[:, 0],
                     input_resampled[:, 1],
                     input_resampled[:, 2],
@@ -394,7 +394,7 @@ class SplineParametersDynamicsLearner:
         nonlinear_effects = cas.vertcat(N1, N2)
 
         dq = X[self.nb_q:].reshape((2, 1))
-        dqdot =inv_mass_matrix @ cas.reshape(tau - nonlinear_effects, 2, 1)
+        dqdot = inv_mass_matrix @ cas.reshape(tau - nonlinear_effects, 2, 1)
         xdot_estimate = cas.vertcat(dq, dqdot)
         forward_dyn_fcn = cas.Function("forward_dyn", [X, U], [xdot_estimate])
         return forward_dyn_fcn
@@ -654,11 +654,13 @@ def train_spline_dynamics_parameters_ocp(smoothness):
         target_start, target_end = sample_task_from_circle()
 
         # Generate reaching movement
+        forward_dynamics_func = learner.casadi_forward_dyn_func(i_episode)
+        print(forward_dynamics_func(np.array([0.1, 0.2, 0.3, 0.04]), np.array([0.1, 0.2, 0.3, 0.3, 0.2, 0.1])))
         ocp = prepare_ocp(
             final_time=final_time,
             n_shooting=n_shooting,
             example_type=ExampleType.CIRCLE,
-            forward_dynamics_func=learner.casadi_forward_dyn_func(),
+            forward_dynamics_func=forward_dynamics_func,
             target_start=target_start,
             target_end=target_end,
         )
@@ -774,8 +776,8 @@ def train_spline_dynamics_parameters_ocp(smoothness):
 
         axs[0, 1].legend()
 
-        axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '-g', label='Real hand trajectory')
-        axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], '-b', label='Real hand trajectory')
+        axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '-b', label='Real hand trajectory')
+        axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], '-g', label='Real hand trajectory')
         axs[0, 2].plot(target_start[0], target_start[1], 'og', label='Target')
         axs[0, 2].plot(target_end[0], target_end[1], 'or', label='Target')
 
