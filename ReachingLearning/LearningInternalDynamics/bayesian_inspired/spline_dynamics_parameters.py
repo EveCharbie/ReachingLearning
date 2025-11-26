@@ -19,10 +19,12 @@ from .utils import (
     get_the_real_marker_position,
     sample_task_from_circle,
     integrate_MS,
+    animate_reintegration,
 )
 
 from ...StochasticOptimalControl.deterministic.deterministic_OCP import prepare_ocp
 from ...StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp
+from ...StochasticOptimalControl.deterministic.deterministic_confirm_solution import confirm_optimal_solution_ocp
 from ...StochasticOptimalControl.utils import ExampleType, solve, get_dm_value
 
 
@@ -268,7 +270,7 @@ class SplineParametersDynamicsLearner:
             # Retrain the spline model
             for key in ["M11", "M12", "M22", "N1", "N2"]:
                 worked = False
-                while not worked and self.input_training_data.shape[0] > 0:
+                while not worked and self.input_training_data.shape[0] > 4:
                     try:
                         self.spline_model[key] = RBFInterpolator(
                             self.input_training_data,
@@ -435,7 +437,6 @@ def get_tau_opt(q: np.ndarray, qdot: np.ndarray, muscles: np.ndarray) -> np.ndar
     for i_node in range(muscles.shape[1]):
         tau_opt[:, i_node] = biorbd_model.muscles.joint_torque(activations=muscles[:, i_node], q=q[:, i_node], qdot=qdot[:, i_node])
     return tau_opt
-
 
 def train_spline_dynamics_parameters_learner(smoothness):
     np.random.seed(0)
@@ -616,7 +617,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
     learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=False)
 
     # Learn ten episodes
-    for i_learn in range(10):
+    for i_learn in range(5):
 
         # Generate random data to initially train on
         x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
@@ -655,7 +656,6 @@ def train_spline_dynamics_parameters_ocp(smoothness):
 
         # Generate reaching movement
         forward_dynamics_func = learner.casadi_forward_dyn_func(i_episode)
-        print(forward_dynamics_func(np.array([0.1, 0.2, 0.3, 0.04]), np.array([0.1, 0.2, 0.3, 0.3, 0.2, 0.1])))
         ocp = prepare_ocp(
             final_time=final_time,
             n_shooting=n_shooting,
@@ -664,7 +664,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             target_start=target_start,
             target_end=target_end,
         )
-        w_opt, solver = solve(
+        w_opt, f_opt, g_opt, solver = solve(
             ocp,
             tol=tol,
             pre_optim_plot=False,
@@ -675,9 +675,12 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             # We use the optimal solution
             save_path_ocp = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.pkl"
             variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
+            confirm_optimal_solution_ocp(w_opt, f_opt, g_opt, ocp)
+
             x0_this_time = np.hstack((variable_data["q_opt"][:, 0], variable_data["qdot_opt"][:, 0]))
-            tau_this_time = get_tau_opt(q=variable_data["q_opt"], qdot=variable_data["qdot_opt"], muscles=variable_data["muscle_opt"])
-            u_this_time = tau_this_time
+            u_this_time = variable_data["muscle_opt"]
+            # tau_this_time = get_tau_opt(q=variable_data["q_opt"], qdot=variable_data["qdot_opt"], muscles=variable_data["muscle_opt"])
+            # u_this_time = tau_this_time
             # u_this_time = tau_this_time + np.random.normal(
             #     loc=np.zeros(tau_this_time.shape),
             #     scale=motor_noise,
@@ -698,7 +701,11 @@ def train_spline_dynamics_parameters_ocp(smoothness):
             converged = False
 
         # Evaluate the error made by the approximate dynamics
-        current_forward_dyn = learner.forward_dyn
+        # current_forward_dyn = learner.forward_dyn
+        x_sym = cas.MX.sym("x", nb_q * 2)
+        u_sym = cas.MX.sym("u", 6)
+        motor_noise_sym = cas.MX.sym("motor_noise", 2)
+        current_forward_dyn = cas.Function("forward_dyn", [x_sym, u_sym, motor_noise_sym], [ocp["model"].dynamics(x_sym, u_sym)])
         x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
             x0_this_time,
             u_this_time,
@@ -733,57 +740,68 @@ def train_spline_dynamics_parameters_ocp(smoothness):
                 real_marker_func(x_integrated_real[:2, i_shooting])).reshape(2, )
         hand_position_error = np.linalg.norm(target_end - hand_position_real[:, -1])
 
+        # # Animate the optimal solution reintegration
+        # animate_reintegration(
+        #     q_reintegrated=x_integrated_real[:2, :],
+        #     muscles_opt=u_this_time,
+        # )
+
+        # Plot the results
         fig, axs = plt.subplots(2, 3, figsize=(10, 8))
         axs[0, 0].plot(time_vector, x_integrated_approx[0, :], '-c', label='Approx x')
-        axs[0, 0].plot(time_vector, x_integrated_real[0, :], '-b', label='Real x')
+        axs[0, 0].plot(time_vector, x_integrated_real[0, :], '--b', label='Real x')
         axs[0, 0].plot(time_vector[:-1], xdot_approx[0, :], '-m', label='Approx xdot')
-        axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '-r', label='Real xdot')
+        axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '--r', label='Real xdot')
         axs[0, 0].plot(time_vector_MS, x_integrated_approx_MS[0, :], '.', color="tab:gray", label='Approx x MS')
-        axs[0, 0].plot(time_vector_MS, x_integrated_real_MS[0, :], 'o', mfc='none', color="k", label='real x MS')
+        # axs[0, 0].plot(time_vector_MS, x_integrated_real_MS[0, :], 'o', mfc='none', color="k", label='real x MS')
         if converged:
-            axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], '-g', label='Optimal xdot')
+            axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], ':g', label='Optimal xdot')
         axs[0, 0].set_title("Q1")
 
         axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx x')
-        axs[0, 1].plot(time_vector, x_integrated_real[1, :], '-b', label='Real x')
+        axs[0, 1].plot(time_vector, x_integrated_real[1, :], '--b', label='Real x')
         axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx xdot')
-        axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '-r', label='Real xdot')
+        axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '--r', label='Real xdot')
         axs[0, 1].plot(time_vector_MS, x_integrated_approx_MS[1, :], '.', color="tab:gray", label='Approx x MS')
-        axs[0, 1].plot(time_vector_MS, x_integrated_real_MS[1, :], 'o', mfc='none', color="k", label='real x MS')
+        # axs[0, 1].plot(time_vector_MS, x_integrated_real_MS[1, :], 'o', mfc='none', color="k", label='real x MS')
         if converged:
-            axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], '-g', label='Optimal x')
+            axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], ':g', label='Optimal x')
         axs[0, 1].set_title("Q2")
 
         axs[1, 0].plot(time_vector, x_integrated_approx[2, :], '-c', label='Approx x')
-        axs[1, 0].plot(time_vector, x_integrated_real[2, :], '-b', label='Real x')
+        axs[1, 0].plot(time_vector, x_integrated_real[2, :], '--b', label='Real x')
         axs[1, 0].plot(time_vector[:-1], xdot_approx[2, :], '-m', label='Approx xdot')
-        axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '-r', label='Real xdot')
+        axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '--r', label='Real xdot')
         axs[1, 0].plot(time_vector_MS, x_integrated_approx_MS[2, :], '.', color="tab:gray", label='Approx x MS')
-        axs[1, 0].plot(time_vector_MS, x_integrated_real_MS[2, :], 'o', mfc='none', color="k", label='real x MS')
+        # axs[1, 0].plot(time_vector_MS, x_integrated_real_MS[2, :], 'o', mfc='none', color="k", label='real x MS')
         if converged:
-            axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], '-g', label='Optimal x')
+            axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], ':g', label='Optimal x')
         axs[1, 0].set_title("Qdot1")
 
         axs[1, 1].plot(time_vector, x_integrated_approx[3, :], '-c', label='Approx x')
-        axs[1, 1].plot(time_vector, x_integrated_real[3, :], '-b', label='Real x')
+        axs[1, 1].plot(time_vector, x_integrated_real[3, :], '--b', label='Real x')
         axs[1, 1].plot(time_vector[:-1], xdot_approx[3, :], '-m', label='Approx xdot')
-        axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '-r', label='Real xdot')
+        axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '--r', label='Real xdot')
         axs[1, 1].plot(time_vector_MS, x_integrated_approx_MS[3, :], '.', color="tab:gray", label='Approx x MS')
-        axs[1, 1].plot(time_vector_MS, x_integrated_real_MS[3, :], 'o', mfc='none', color="k", label='real x MS')
+        # axs[1, 1].plot(time_vector_MS, x_integrated_real_MS[3, :], 'o', mfc='none', color="k", label='real x MS')
         if converged:
-            axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], '-g', label='Optimal x')
+            axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], ':g', label='Optimal x')
         axs[1, 1].set_title("Qdot2")
 
         axs[0, 1].legend()
 
-        axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '-b', label='Real hand trajectory')
-        axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], '-g', label='Real hand trajectory')
+        axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '--b', label='Real hand trajectory')
+        axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], ':g', label='Optimal hand trajectory')
         axs[0, 2].plot(target_start[0], target_start[1], 'og', label='Target')
         axs[0, 2].plot(target_end[0], target_end[1], 'or', label='Target')
+        home_position = np.array([-0.0212132, 0.445477])
+        circ = plt.Circle(home_position, 0.15, fill=False, linestyle="-")
+        axs[0, 2].add_patch(circ)
+        axs[0, 2].axis("equal")
 
         fig_path = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.png"
         plt.savefig(fig_path)
-        plt.show()
+        # plt.show()
 
         sys.stdout = sys.__stdout__
         print(f"{i_episode} --- reintegration error: "

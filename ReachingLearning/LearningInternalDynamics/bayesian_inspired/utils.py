@@ -11,24 +11,26 @@ from ...StochasticOptimalControl.utils import RK4, get_dm_value
 def get_the_real_dynamics():
     current_path = Path(__file__).parent
     model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
-    biorbd_model = biorbd.Model(model_path)
-    nb_q = biorbd_model.nbQ()
+    biorbd_model = biorbd.Biorbd(model_path)
+    nb_q = biorbd_model.nb_q
     X = cas.MX.sym("x", nb_q * 2)
-    U = cas.MX.sym("u", nb_q)
+    # U = cas.MX.sym("u", nb_q)
+    U = cas.MX.sym("u", 6)
     motor_noise = cas.MX.sym("motor_noise", nb_q)
 
-    xdot = cas.vertcat(X[nb_q:], biorbd_model.ForwardDynamics(X[:nb_q], X[nb_q:], U).to_mx())
+    tau = biorbd_model.muscles.joint_torque(activations=U, q=X[:nb_q], qdot=X[nb_q:])
+    xdot = cas.vertcat(X[nb_q:], biorbd_model.forward_dynamics(X[:nb_q], X[nb_q:], tau))
     real_dynamics = cas.Function("forward_dynamics", [X, U, motor_noise], [xdot])
 
     inv_mass_matrix_func = cas.Function(
         "inv_mass_matrix",
         [X],
-        [cas.inv(biorbd_model.massMatrix(X[:nb_q]).to_mx())],
+        [cas.inv(biorbd_model.mass_matrix(X[:nb_q]))],
     )
     nl_effect_vector_func = cas.Function(
         "nl_effect_vector",
         [X],
-        [biorbd_model.NonLinearEffect(X[:nb_q], X[nb_q:]).to_mx()],
+        [biorbd_model.non_linear_effect(X[:nb_q], X[nb_q:])],
     )
 
     return real_dynamics, inv_mass_matrix_func, nl_effect_vector_func
@@ -172,7 +174,7 @@ def generate_random_data(nb_q, n_shooting):
         np.random.uniform(-5, 5),
         np.random.uniform(-5, 5),
     ])
-    u_this_time = np.random.uniform(-1, 1, (nb_q, n_shooting))
+    u_this_time = np.random.uniform(0, 0.1, (6, n_shooting))
     return x0_this_time, u_this_time
 
 
@@ -199,3 +201,47 @@ def sample_task_from_circle():
     end_position = home_position + random_end_radius * np.array([np.cos(random_end_angle), np.sin(random_end_angle)])
 
     return start_position, end_position
+
+def animate_reintegration(
+        q_reintegrated: np.ndarray,
+        muscles_opt: np.ndarray,
+        ) -> None:
+
+    import pyorerun
+    n_shooting = q_reintegrated.shape[1] - 1
+    final_time = 0.8
+
+    # Add the model
+    current_path = Path(__file__).parent
+    model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
+    model = pyorerun.BiorbdModel(model_path)
+    model.options.show_marker_labels = False
+    model.options.show_center_of_mass_labels = False
+    model.options.show_muscle_labels = False
+
+    # Add the end effector as persistent marker
+    model.options.persistent_markers = pyorerun.PersistentMarkerOptions(
+        marker_names=["end_effector"],
+        radius=0.005,
+        color=np.array([0, 1, 0]),
+        show_labels=False,
+        nb_frames=n_shooting + 1,
+    )
+
+    # Initialize the animation
+    t_span = np.linspace(0, final_time, n_shooting + 1)
+    viz = pyorerun.PhaseRerun(t_span)
+
+    # Add experimental emg
+    pyoemg = pyorerun.PyoMuscles(
+        data=np.hstack((muscles_opt, np.zeros((6, 1)))),
+        muscle_names=list(model.muscle_names),
+        mvc=np.ones((model.nb_muscles,)),
+        colormap="viridis",
+    )
+
+    # Add the kinematics
+    viz.add_animated_model(model, q_reintegrated, muscle_activations_intensity=pyoemg)
+
+    # Play
+    viz.rerun("Q reintegrated")
