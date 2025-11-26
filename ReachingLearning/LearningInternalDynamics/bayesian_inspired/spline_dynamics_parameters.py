@@ -21,6 +21,7 @@ from .utils import (
     integrate_MS,
     animate_reintegration,
 )
+# from ...constants import TARGET_START_VAN_WOUWE, TARGET_END_VAN_WOUWE
 
 from ...StochasticOptimalControl.deterministic.deterministic_OCP import prepare_ocp
 from ...StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp
@@ -653,6 +654,8 @@ def train_spline_dynamics_parameters_ocp(smoothness):
 
         # Sample a task
         target_start, target_end = sample_task_from_circle()
+        # target_start = TARGET_START_VAN_WOUWE
+        # target_end = TARGET_END_VAN_WOUWE
 
         # Generate reaching movement
         forward_dynamics_func = learner.casadi_forward_dyn_func(i_episode)
@@ -801,7 +804,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
 
         fig_path = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.png"
         plt.savefig(fig_path)
-        # plt.show()
+        plt.show()
 
         sys.stdout = sys.__stdout__
         print(f"{i_episode} --- reintegration error: "
