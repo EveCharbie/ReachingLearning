@@ -51,7 +51,7 @@ def run_socp_basic(
         print(
             "\nSolving SOCP BASIC............................................................................................\n"
         )
-        w_opt, solver = solve(
+        w_opt, f_opt, g_opt, solver = solve(
             socp_basic,
             tol=tol,
             output_file=save_path_socp_basic.replace(".pkl", "_ipopt_output.txt"),

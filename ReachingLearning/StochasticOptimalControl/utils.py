@@ -50,7 +50,7 @@ def inverse_kinematics_target(model, target_pos: np.ndarray) -> np.ndarray:
     # Test with forward kinematics that everything was OK
     func = cas.Function("forward_kin", [q], [model.marker(q, marker_index).to_mx()[:2]])
     marker_pos_opt = func(w_opt)
-    if not np.allclose(marker_pos_opt.full().flatten(), target_pos.full().flatten(), atol=1e-6):
+    if not np.allclose(np.array(marker_pos_opt), np.array(target_pos), atol=1e-6):
         raise RuntimeError("Inverse kinematics did not converge to the target position.")
 
     return np.array(w_opt)
@@ -118,7 +118,7 @@ def solve(
     output_file: str = None,
     pre_optim_plot: bool = False,
     show_online_optim: bool = True,
-) -> tuple[np.ndarray, dict[str, any]]:
+) -> tuple[np.ndarray, float, np.ndarray, dict[str, any]]:
     """Solve the problem using IPOPT solver"""
 
     # Extract the problem
@@ -170,5 +170,7 @@ def solve(
     # Solve the NLP
     sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
     w_opt = sol["x"].full().flatten()
+    f_opt = sol["f"]
+    g_opt = sol["g"].full().flatten()
 
-    return w_opt, solver
+    return w_opt, f_opt, g_opt, solver

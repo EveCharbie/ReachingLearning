@@ -51,7 +51,7 @@ def run_socp_delay(
         print(
             "\nSolving SOCP BASIC............................................................................................\n"
         )
-        w_opt, solver = solve(socp_delay)
+        w_opt, f_opt, g_opt, solver = solve(socp_delay)
         variable_data = save_socp_delay(w_opt, socp_delay, save_path_socp_delay, tol, solver)
     else:
         ocp_print_tol = get_print_tol(tol)

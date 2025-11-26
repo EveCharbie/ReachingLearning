@@ -7,6 +7,7 @@ from .deterministic_OCP import prepare_ocp
 from .deterministic_save_results import save_ocp
 from .deterministic_plot import plot_ocp
 from .deterministic_animate import animate_ocp
+from .deterministic_confirm_solution import confirm_optimal_solution_ocp
 
 
 def run_ocp(
@@ -38,8 +39,9 @@ def run_ocp(
         print(
             "\nSolving OCP............................................................................................\n"
         )
-        w_opt, solver = solve(ocp)
+        w_opt, f_opt, g_opt, solver = solve(ocp)
         variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
+        confirm_optimal_solution_ocp(w_opt, f_opt, g_opt, ocp)
     else:
         ocp_print_tol = get_print_tol(tol)
         save_path_ocp = save_path_ocp.replace(".pkl", f"_CVG_{ocp_print_tol}.pkl")

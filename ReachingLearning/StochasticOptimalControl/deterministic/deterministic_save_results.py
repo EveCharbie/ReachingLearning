@@ -5,6 +5,50 @@ from datetime import datetime
 from ..save_utils import integrate_single_shooting, get_print_tol
 
 
+def get_variables_from_vector(n_q, n_shooting, n_muscles, vector):
+
+    # Get optimization variables
+    q_opt = np.zeros((n_q, n_shooting + 1))
+    qdot_opt = np.zeros((n_q, n_shooting + 1))
+    muscle_opt = np.zeros((n_muscles, n_shooting))
+
+    offset = 0
+    for i_node in range(n_shooting + 1):
+        q_opt[:, i_node] = np.array(vector[offset : offset + n_q]).flatten()
+        offset += n_q
+
+        qdot_opt[:, i_node] = np.array(vector[offset : offset + n_q]).flatten()
+        offset += n_q
+
+        if i_node < n_shooting:
+            muscle_opt[:, i_node] = np.array(vector[offset : offset + n_muscles]).flatten()
+            offset += n_muscles
+
+    return q_opt, qdot_opt, muscle_opt
+
+
+def get_states_and_controls(
+    n_q,
+    n_shooting,
+    n_muscles,
+    q_opt,
+    qdot_opt,
+    muscle_opt,
+):
+    # Get optimization variables
+    x_opt = np.zeros((n_q * 2, n_shooting + 1))
+    u_opt = np.zeros((n_muscles, n_shooting))
+
+    for i_node in range(n_shooting + 1):
+        x_opt[: n_q, i_node] = q_opt[:, i_node].flatten(order="F")
+        x_opt[n_q :, i_node] = qdot_opt[:, i_node].flatten(order="F")
+
+        if i_node < n_shooting:
+            u_opt[:n_muscles, i_node] = muscle_opt[:, i_node].flatten()
+            muscle_offset = n_muscles
+
+    return x_opt, u_opt
+
 def save_ocp(
     w_opt: np.ndarray,
     ocp: dict[str, any],
@@ -12,6 +56,9 @@ def save_ocp(
     tol: float,
     solver: any,
 ):
+
+    n_q = ocp["model"].nb_q
+    n_muscles = ocp["model"].nb_muscles
 
     # Parse ocp
     w0 = ocp["w0"]
@@ -21,52 +68,27 @@ def save_ocp(
     final_time = ocp["final_time"]
 
     # Get optimization variables
-    q_opt = []
-    q0 = []
-    lbq = []
-    ubq = []
-    qdot_opt = []
-    qdot0 = []
-    lbqdot = []
-    ubqdot = []
-    muscle_opt = []
-    muscle0 = []
-    lbmuscle = []
-    ubmuscle = []
-    offset = 0
-    for i_node in range(n_shooting + 1):
+    q_opt, qdot_opt, muscle_opt = get_variables_from_vector(
+        n_q, n_shooting, n_muscles, w_opt
+    )
+    q0, qdot0, muscle0 = get_variables_from_vector(
+        n_q, n_shooting, n_muscles, w0
+    )
+    lbq, lbqdot, lbmuscle = get_variables_from_vector(
+        n_q, n_shooting, n_muscles, lbw
+    )
+    ubq, ubqdot, ubmuscle = get_variables_from_vector(
+        n_q, n_shooting, n_muscles, ubw
+    )
+    x_opt, u_opt = get_states_and_controls(
+        n_q,
+        n_shooting,
+        n_muscles,
+        q_opt,
+        qdot_opt,
+        muscle_opt,
+    )
 
-        q_opt += w_opt[offset : offset + 2].tolist()
-        q0 += np.array(w0[offset : offset + 2]).flatten().tolist()
-        lbq += np.array(lbw[offset : offset + 2]).flatten().tolist()
-        ubq += np.array(ubw[offset : offset + 2]).flatten().tolist()
-        offset += 2
-
-        qdot_opt += w_opt[offset : offset + 2].tolist()
-        qdot0 += np.array(w0[offset : offset + 2]).flatten().tolist()
-        lbqdot += np.array(lbw[offset : offset + 2]).flatten().tolist()
-        ubqdot += np.array(ubw[offset : offset + 2]).flatten().tolist()
-        offset += 2
-
-        if i_node < n_shooting:
-            muscle_opt += w_opt[offset : offset + 6].tolist()
-            muscle0 += np.array(w0[offset : offset + 6]).flatten().tolist()
-            lbmuscle += np.array(lbw[offset : offset + 6]).flatten().tolist()
-            ubmuscle += np.array(ubw[offset : offset + 6]).flatten().tolist()
-            offset += 6
-
-    q_opt = np.array(q_opt).reshape(2, n_shooting + 1, order="F")
-    q0 = np.array(q0).reshape(2, n_shooting + 1, order="F")
-    lbq = np.array(lbq).reshape(2, n_shooting + 1, order="F")
-    ubq = np.array(ubq).reshape(2, n_shooting + 1, order="F")
-    qdot_opt = np.array(qdot_opt).reshape(2, n_shooting + 1, order="F")
-    qdot0 = np.array(qdot0).reshape(2, n_shooting + 1, order="F")
-    lbqdot = np.array(lbqdot).reshape(2, n_shooting + 1, order="F")
-    ubqdot = np.array(ubqdot).reshape(2, n_shooting + 1, order="F")
-    muscle_opt = np.array(muscle_opt).reshape(6, n_shooting, order="F")
-    muscle0 = np.array(muscle0).reshape(6, n_shooting, order="F")
-    lbmuscle = np.array(lbmuscle).reshape(6, n_shooting, order="F")
-    ubmuscle = np.array(ubmuscle).reshape(6, n_shooting, order="F")
     time_vector = np.linspace(0, final_time, n_shooting + 1)
 
     # Reintegrate the solution
@@ -88,6 +110,8 @@ def save_ocp(
     save_path_ocp = save_path_ocp.replace(".pkl", f"_{status}_{ocp_print_tol}.pkl")
 
     variable_data = {
+        "x_opt": x_opt,
+        "u_opt": u_opt,
         "q_opt": q_opt,
         "q0": q0,
         "lbq": lbq,
