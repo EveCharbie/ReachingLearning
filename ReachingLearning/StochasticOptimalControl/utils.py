@@ -50,7 +50,7 @@ def inverse_kinematics_target(model, target_pos: np.ndarray) -> np.ndarray:
     # Test with forward kinematics that everything was OK
     func = cas.Function("forward_kin", [q], [model.marker(q, marker_index).to_mx()[:2]])
     marker_pos_opt = func(w_opt)
-    if not np.allclose(np.array(marker_pos_opt), np.array(target_pos), atol=1e-6):
+    if not np.allclose(np.array(marker_pos_opt).reshape(2, ), np.array(target_pos).reshape(2, ), atol=1e-6):
         raise RuntimeError("Inverse kinematics did not converge to the target position.")
 
     return np.array(w_opt)

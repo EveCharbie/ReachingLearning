@@ -650,7 +650,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
     # Track learning progress
     hand_position_error = np.inf
     i_episode = 0
-    while hand_position_error > hand_error_threshold:
+    while hand_position_error > hand_error_threshold and i_episode < 250:
 
         # Sample a task
         target_start, target_end = sample_task_from_circle()
@@ -804,7 +804,7 @@ def train_spline_dynamics_parameters_ocp(smoothness):
 
         fig_path = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.png"
         plt.savefig(fig_path)
-        plt.show()
+        # plt.show()
 
         sys.stdout = sys.__stdout__
         print(f"{i_episode} --- reintegration error: "
