@@ -14,12 +14,10 @@ def get_the_real_dynamics():
     biorbd_model = biorbd.Biorbd(model_path)
     nb_q = biorbd_model.nb_q
     X = cas.MX.sym("x", nb_q * 2)
-    # U = cas.MX.sym("u", nb_q)
-    U = cas.MX.sym("u", 6)
+    U = cas.MX.sym("u", nb_q)
     motor_noise = cas.MX.sym("motor_noise", nb_q)
 
-    tau = biorbd_model.muscles.joint_torque(activations=U, q=X[:nb_q], qdot=X[nb_q:])
-    xdot = cas.vertcat(X[nb_q:], biorbd_model.forward_dynamics(X[:nb_q], X[nb_q:], tau))
+    xdot = cas.vertcat(X[nb_q:], biorbd_model.forward_dynamics(X[:nb_q], X[nb_q:], U))
     real_dynamics = cas.Function("forward_dynamics", [X, U, motor_noise], [xdot])
 
     inv_mass_matrix_func = cas.Function(
@@ -174,7 +172,8 @@ def generate_random_data(nb_q, n_shooting):
         np.random.uniform(-5, 5),
         np.random.uniform(-5, 5),
     ])
-    u_this_time = np.random.uniform(0, 0.1, (6, n_shooting))
+    u_this_time = np.random.uniform(0, 0.1, (nb_q, n_shooting))
+    # u_this_time = np.random.uniform(0, 0.1, (6, n_shooting))
     return x0_this_time, u_this_time
 
 

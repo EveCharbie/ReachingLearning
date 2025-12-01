@@ -11,7 +11,8 @@ def declare_variables(
     model,
     target_start: np.ndarray,
     target_end: np.ndarray,
-    n_shooting,
+    n_shooting: int,
+    muscle_driven: bool = True,
 ) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
     """
     Declare all variables (states and controls) and their initial guess
@@ -55,12 +56,20 @@ def declare_variables(
             ubw += [np.pi / 2, 7 / 8 * np.pi, 10 * np.pi, 10 * np.pi]
         w0 += [joint_angles_init[0, i_node], joint_angles_init[1, i_node], 0, 0]
         if i_node < n_shooting:
-            muscle_i = cas.MX.sym(f"muscle_{i_node}", 6)
-            u += [muscle_i]
-            w += [muscle_i]
-            lbw += [1e-6] * 6
-            ubw += [1] * 6
-            w0 += [1e-6] * 6
+            if muscle_driven:
+                muscle_i = cas.MX.sym(f"muscle_{i_node}", 6)
+                u += [muscle_i]
+                w += [muscle_i]
+                lbw += [1e-6] * 6
+                ubw += [1] * 6
+                w0 += [1e-6] * 6
+            else:
+                tau_i = cas.MX.sym(f"tau_{i_node}", 2)
+                u += [tau_i]
+                w += [tau_i]
+                lbw += [-100] * 2
+                ubw += [100] * 2
+                w0 += [1e-6] * 2
     return x, u, w, lbw, ubw, w0
 
 
@@ -100,6 +109,7 @@ def prepare_ocp(
     forward_dynamics_func: cas.Function=None,
     target_start: np.ndarray = TARGET_START_VAN_WOUWE,
     target_end: np.ndarray = TARGET_END_VAN_WOUWE,
+    muscle_driven: bool = True,
 ) -> dict[str, any]:
 
     # Model
@@ -107,10 +117,11 @@ def prepare_ocp(
         force_field_magnitude=force_field_magnitude,
         n_shooting=n_shooting,
         forward_dynamics_func=forward_dynamics_func,
+        muscle_driven=muscle_driven,
     )
 
     # Variables
-    x, u, w, lbw, ubw, w0 = declare_variables(model, target_start, target_end, n_shooting)
+    x, u, w, lbw, ubw, w0 = declare_variables(model, target_start, target_end, n_shooting, muscle_driven=muscle_driven)
 
     # Start with an empty NLP
     j = 0

@@ -10,6 +10,7 @@ class DeterministicArmModel(ArmModel):
         force_field_magnitude: float = 0,
         n_shooting: int = 50,
         forward_dynamics_func: cas.Function = None,
+        muscle_driven: bool = True,
     ):
         ArmModel.__init__(
             self,
@@ -18,6 +19,7 @@ class DeterministicArmModel(ArmModel):
         self.forward_dynamics_func = forward_dynamics_func
         self.n_shooting = n_shooting
         self.force_field_magnitude = force_field_magnitude
+        self.muscle_driven = muscle_driven
 
     def real_dynamics(
         self,
@@ -34,10 +36,13 @@ class DeterministicArmModel(ArmModel):
         # Collect variables
         q = x_single[0:2]
         qdot = x_single[2:4]
-        muscle = u_single
 
         # Collect tau components
-        muscles_tau = self.get_muscle_torque(q, qdot, muscle)
+        if self.muscle_driven:
+            muscle = u_single
+            muscles_tau = self.get_muscle_torque(q, qdot, muscle)
+        else:
+            muscles_tau = u_single
         tau_force_field = self.force_field(q, self.force_field_magnitude)
         tau_friction = -self.friction_coefficients @ qdot
         torques_computed = muscles_tau + tau_force_field + tau_friction
