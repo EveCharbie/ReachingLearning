@@ -4,6 +4,8 @@ from ReachingLearning import train_spline_dynamics_parameters_ocp
 smoothness = 0.5  # Seems OK :D
 # smoothness = 0.99  # Too smooth
 
-smoothness = 0.01
+# nb_grid_points = 10  # Too small
+nb_grid_points = 15
+# nb_grid_points = 20  # Computer wants to explode
 
-train_spline_dynamics_parameters_ocp(smoothness)
+train_spline_dynamics_parameters_ocp(smoothness, nb_grid_points)

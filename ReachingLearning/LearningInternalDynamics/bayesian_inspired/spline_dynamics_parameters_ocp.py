@@ -1,8 +1,6 @@
 import pickle
 from pathlib import Path
-import threading
 import sys
-import time
 
 import numpy as np
 import matplotlib
@@ -283,7 +281,7 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int)
     learner = SplineParametersDynamicsLearner(nb_q, smoothness, nb_grid_points)
 
     # Learn ten episodes
-    for i_learn in range(5):
+    for i_learn in range(10):
 
         # Generate random data to initially train on
         x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
@@ -466,26 +464,59 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int)
         input_resampled = np.zeros((nb_resampling, 2 * 2))
         input_resampled[:, 0] = np.linspace(0, np.pi/2, nb_resampling)
         input_resampled[:, 1] = np.linspace(0, 7/8 * np.pi, nb_resampling)
-        input_resampled[:, 2] = np.linspace(-10 * np.pi, 10 * np.pi, nb_resampling)
-        input_resampled[:, 3] = np.linspace(-10 * np.pi, 10 * np.pi, nb_resampling)
-        gridq1, gridq2, gridqdot1, gridqdot2 = np.meshgrid(
+        input_resampled[:, 2] = np.linspace(-2 * np.pi, 2 * np.pi, nb_resampling)
+        input_resampled[:, 3] = np.linspace(-2 * np.pi, 2 * np.pi, nb_resampling)
+        gridq1, gridq2 = np.meshgrid(
             input_resampled[:, 0],
             input_resampled[:, 1],
+            indexing='ij',
+        )
+        gridqdot1, gridqdot2 = np.meshgrid(
             input_resampled[:, 2],
             input_resampled[:, 3],
             indexing='ij',
         )
 
         # Get the interpolated values
+        interpolated_values_M11 = learner.spline_model["M11"](np.vstack((
+                gridq1.ravel(),
+                gridq2.ravel(),
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
+            )).T)
         interpolated_values_M12 = learner.spline_model["M12"](np.vstack((
                 gridq1.ravel(),
                 gridq2.ravel(),
-                gridqdot1.ravel(),
-                gridqdot2.ravel(),
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
+            )).T)
+        interpolated_values_M22 = learner.spline_model["M22"](np.vstack((
+                gridq1.ravel(),
+                gridq2.ravel(),
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
             )).T)
         interpolated_values_N2 = learner.spline_model["N2"](np.vstack((
                 gridq1.ravel(),
                 gridq2.ravel(),
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
+            )).T)
+        interpolated_values_N1 = learner.spline_model["N1"](np.vstack((
+                gridq1.ravel(),
+                gridq2.ravel(),
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
+            )).T)
+        interpolated_values_N2V = learner.spline_model["N2"](np.vstack((
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
+                gridqdot1.ravel(),
+                gridqdot2.ravel(),
+            )).T)
+        interpolated_values_N1V = learner.spline_model["N1"](np.vstack((
+                np.ones_like(gridq1.ravel()),
+                np.ones_like(gridq2.ravel()),
                 gridqdot1.ravel(),
                 gridqdot2.ravel(),
             )).T)
@@ -495,13 +526,19 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int)
         # ax.plot_surface(gridq1[:, :, 0, 0], gridq2[:, :, 0, 0], interpolated_values_M12.reshape(30, 30, 30, 30)[:, :, 0, 0])
         # ax.plot_surface(gridq1[:, :, 0, 0], gridq2[:, :, 0, 0], interpolated_values_N2.reshape(30, 30, 30, 30)[:, :, 0, 0])
         # ax.plot_surface(gridqdot1[0, 0, :, :], gridqdot2[0, 0, :, :], interpolated_values_N2.reshape(30, 30, 30, 30)[0, 0, :, :])
-        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_M12, '.r', markersize=0.5)
-        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_N2, '.g', markersize=0.5)
+        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_M11, '.r', markersize=0.5)
+        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_M12, '.m', markersize=0.5)
+        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_M22, '.', color="tab:orange", markersize=0.5)
+        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_N1, '.b', markersize=0.5)
+        ax.plot(gridq1.ravel(), gridq2.ravel(), interpolated_values_N2, '.c', markersize=0.5)
+        ax.plot(gridqdot1.ravel(), gridqdot2.ravel(), interpolated_values_N1V, '.b', markersize=0.5)
+        ax.plot(gridqdot1.ravel(), gridqdot2.ravel(), interpolated_values_N2V, '.c', markersize=0.5)
         # ax.plot(gridqdot1.ravel(), gridqdot2.ravel(), interpolated_values_N2)
 
         fig_path = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.png"
         plt.savefig(fig_path)
-        # plt.show()
+        plt.show()
+        # plt.close()
 
         sys.stdout = sys.__stdout__
         print(f"{i_episode} --- reintegration error: "

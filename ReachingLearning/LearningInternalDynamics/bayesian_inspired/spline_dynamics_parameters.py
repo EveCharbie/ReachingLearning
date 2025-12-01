@@ -9,24 +9,13 @@ import matplotlib
 matplotlib.use("TkAgg")  # or 'Qt5Agg'
 import matplotlib.pyplot as plt
 from scipy.interpolate import RBFInterpolator
-import casadi as cas
 
 
 from .utils import (
     get_the_real_dynamics,
     integrate_the_dynamics,
     generate_random_data,
-    get_the_real_marker_position,
-    sample_task_from_circle,
-    integrate_MS,
-    animate_reintegration,
 )
-# from ...constants import TARGET_START_VAN_WOUWE, TARGET_END_VAN_WOUWE
-
-from ...StochasticOptimalControl.deterministic.deterministic_OCP import prepare_ocp
-from ...StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp
-from ...StochasticOptimalControl.deterministic.deterministic_confirm_solution import confirm_optimal_solution_ocp
-from ...StochasticOptimalControl.utils import ExampleType, solve, get_dm_value
 
 
 class LivePlotter:
@@ -197,7 +186,13 @@ class SplineParametersDynamicsLearner:
     Spline approximation of the dynamics.
     """
 
-    def __init__(self, nb_q, smoothness=0.1, kernel='thin_plate_spline', enable_plotting=True):
+    def __init__(
+            self,
+            nb_q: int,
+            smoothness: float = 0.1,
+            kernel: str = 'thin_plate_spline',
+            enable_plotting: bool = True,
+    ):
         self.nb_q = nb_q
         self.smoothness = smoothness
         self.kernel = kernel
@@ -336,72 +331,6 @@ class SplineParametersDynamicsLearner:
     def forward_dyn(self, x, u, motor_noise):
         return self.predict(x, u)
 
-    def casadi_forward_dyn_func(self, iter_num: int) -> cas.Function:
-        """
-        Create an interpolant in casadi by evaluating the scipy one on an equal grid.
-        This function is to be used in the OCP.
-        """
-        nb_resampling = 10
-
-        # Creating a fixed meshgrid over the RoM as CasADi is a fucker and returns zero instead of extrapolating !
-        input_resampled = np.zeros((nb_resampling, self.nb_q * 2))
-        input_resampled[:, 0] = np.linspace(0, np.pi/2, nb_resampling)
-        input_resampled[:, 1] = np.linspace(0, 7/8 * np.pi, nb_resampling)
-        input_resampled[:, 2] = np.linspace(-10 * np.pi, 10 * np.pi, nb_resampling)
-        input_resampled[:, 3] = np.linspace(-10 * np.pi, 10 * np.pi, nb_resampling)
-        gridq1, gridq2, gridqdot1, gridqdot2 = np.meshgrid(
-            input_resampled[:, 0],
-            input_resampled[:, 1],
-            input_resampled[:, 2],
-            input_resampled[:, 3],
-            indexing='ij',
-        )
-
-        # Get the interpolated values
-        interpolated_values = {}
-        lut = {}
-        for key in ["M11", "M12", "M22", "N1", "N2"]:
-            interpolated_values[key] = self.spline_model[key](np.vstack((
-                gridq1.ravel(),
-                gridq2.ravel(),
-                gridqdot1.ravel(),
-                gridqdot2.ravel(),
-            )).T)
-            lut[key] = cas.interpolant(f"lut_{iter_num}_{key}", "bspline", [
-                    input_resampled[:, 0],
-                    input_resampled[:, 1],
-                    input_resampled[:, 2],
-                    input_resampled[:, 3],
-                ], interpolated_values[key])
-
-        X = cas.MX.sym("X", self.nb_q * 2)
-        U = cas.MX.sym("U", 6)
-
-        # TODO: remove this portion and include muscle dynamics in the learned model
-        import biorbd_casadi
-        current_path = Path(__file__).parent
-        model_path = f"{current_path}/../../StochasticOptimalControl/models/arm_model.bioMod"
-        biorbd_model = biorbd_casadi.Biorbd(model_path)
-        tau = biorbd_model.muscles.joint_torque(activations=U, q=X[:self.nb_q], qdot=X[self.nb_q:])
-
-        M11 = lut["M11"](X)
-        M12 = lut["M12"](X)
-        M22 = lut["M22"](X)
-        inv_mass_matrix = cas.vertcat(
-            cas.horzcat(M11, M12),
-            cas.horzcat(M12, M22)
-        )
-
-        N1 = lut["N1"](X)
-        N2 = lut["N2"](X)
-        nonlinear_effects = cas.vertcat(N1, N2)
-
-        dq = X[self.nb_q:].reshape((2, 1))
-        dqdot = inv_mass_matrix @ cas.reshape(tau - nonlinear_effects, 2, 1)
-        xdot_estimate = cas.vertcat(dq, dqdot)
-        forward_dyn_fcn = cas.Function("forward_dyn", [X, U], [xdot_estimate])
-        return forward_dyn_fcn
-
     def save_model(self, str_sup: str = ""):
         """
         Save the learned model to a file.
@@ -452,7 +381,7 @@ def train_spline_dynamics_parameters_learner(smoothness):
     real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
 
     # Initialize the Spline parameter learner
-    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=True)
+    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=False)
 
     # Learn ten episodes
     for i_learn in range(10):
@@ -485,7 +414,7 @@ def train_spline_dynamics_parameters_learner(smoothness):
     sys.stdout = output_file
 
     # Track learning progress
-    for i_episode in range(10):
+    for i_episode in range(100):
 
         # Generate random data to compare against
         x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
@@ -520,7 +449,7 @@ def train_spline_dynamics_parameters_learner(smoothness):
     print("-----------------------------------------------------")
     print("Learning complete!")
     learner.save_model(str_sup=f"{str(smoothness).replace('.', 'p')}")
-    learner.plotter.stop()
+    # learner.plotter.stop()
 
     # Close the file and restore printing to the console
     sys.stdout = sys.__stdout__
@@ -595,242 +524,4 @@ def evaluate_spline_dynamics_parameters(smoothness: float = 0.1):
     axs[0, 1].legend()
     fig_path = f"{current_path}/../../../figures/LearningInternalDynamics/spline_dynamics_model_evaluation_{str(smoothness).replace('.', 'p')}.png"
     plt.savefig(fig_path)
-
-
-def train_spline_dynamics_parameters_ocp(smoothness):
-    # TODO: add uncertainty (modeling) on the end_effector_position function
-    np.random.seed(42)
-
-    # Constants
-    final_time = 0.8
-    dt = 0.05
-    nb_q = 2
-    n_shooting = int(final_time / dt)
-    hand_error_threshold = 0.01  # 1 cm
-    tol = 1e-6
-    motor_noise = 0.05
-
-    # Get the real dynamics
-    real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
-    real_marker_func = get_the_real_marker_position()
-
-    # Initialize the Spline parameter learner
-    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=False)
-
-    # Learn ten episodes
-    for i_learn in range(5):
-
-        # Generate random data to initially train on
-        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
-
-        # Evaluate the error made by the approximate dynamics
-        _, x_integrated_real, _, xdot_real, M_real, N_real = integrate_the_dynamics(
-            x0_this_time,
-            u_this_time,
-            dt,
-            current_forward_dyn=None,
-            real_forward_dyn=real_forward_dyn,
-            inv_mass_matrix_func=inv_mass_matrix_func,
-            nl_effect_vector_func=nl_effect_vector_func,
-        )
-
-        # Update the Spline parameter model with new observations
-        learner.update(
-            x_samples=x_integrated_real[:, :-1].T,
-            M_real=M_real,
-            N_real=N_real,
-        )
-
-    # # Set up the output file and redirect printing to this file
-    current_path = Path(__file__).parent
-    output_file_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_parameters_OCP.txt"
-    output_file = open(output_file_path, 'w')
-    sys.stdout = output_file
-
-    # Track learning progress
-    hand_position_error = np.inf
-    i_episode = 0
-    while hand_position_error > hand_error_threshold and i_episode < 250:
-
-        # Sample a task
-        target_start, target_end = sample_task_from_circle()
-        # target_start = TARGET_START_VAN_WOUWE
-        # target_end = TARGET_END_VAN_WOUWE
-
-        # Generate reaching movement
-        forward_dynamics_func = learner.casadi_forward_dyn_func(i_episode)
-        ocp = prepare_ocp(
-            final_time=final_time,
-            n_shooting=n_shooting,
-            example_type=ExampleType.CIRCLE,
-            forward_dynamics_func=forward_dynamics_func,
-            target_start=target_start,
-            target_end=target_end,
-        )
-        w_opt, f_opt, g_opt, solver = solve(
-            ocp,
-            tol=tol,
-            pre_optim_plot=False,
-            show_online_optim=False,
-            max_iter=100,
-        )
-        if solver.stats()["success"]:
-            # We use the optimal solution
-            save_path_ocp = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.pkl"
-            variable_data = save_ocp(w_opt, ocp, save_path_ocp, tol, solver)
-            confirm_optimal_solution_ocp(w_opt, f_opt, g_opt, ocp)
-
-            x0_this_time = np.hstack((variable_data["q_opt"][:, 0], variable_data["qdot_opt"][:, 0]))
-            u_this_time = variable_data["muscle_opt"]
-            # tau_this_time = get_tau_opt(q=variable_data["q_opt"], qdot=variable_data["qdot_opt"], muscles=variable_data["muscle_opt"])
-            # u_this_time = tau_this_time
-            # u_this_time = tau_this_time + np.random.normal(
-            #     loc=np.zeros(tau_this_time.shape),
-            #     scale=motor_noise,
-            #     size=tau_this_time.shape
-            # )
-            time_vector = variable_data["time_vector"]
-
-            # Get the hand trajectory of the optimal solution
-            opt_end_effector_position = np.zeros((2, n_shooting + 1))
-            for i_shooting in range(n_shooting + 1):
-                opt_end_effector_position[:, i_shooting] = np.array(real_marker_func(variable_data["q_opt"][:, i_shooting])).reshape(2, )
-            converged = True
-        else:
-            # We generate random data to train the model since the OCP did not converge
-            x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
-            time_vector = np.linspace(0, final_time, n_shooting + 1)
-            opt_end_effector_position = np.zeros((2, n_shooting + 1))
-            converged = False
-
-        # Evaluate the error made by the approximate dynamics
-        # current_forward_dyn = learner.forward_dyn
-        x_sym = cas.MX.sym("x", nb_q * 2)
-        u_sym = cas.MX.sym("u", 6)
-        motor_noise_sym = cas.MX.sym("motor_noise", 2)
-        current_forward_dyn = cas.Function("forward_dyn", [x_sym, u_sym, motor_noise_sym], [ocp["model"].dynamics(x_sym, u_sym)])
-        x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
-            x0_this_time,
-            u_this_time,
-            dt,
-            current_forward_dyn=current_forward_dyn,
-            real_forward_dyn=real_forward_dyn,
-            inv_mass_matrix_func=inv_mass_matrix_func,
-            nl_effect_vector_func=nl_effect_vector_func,
-        )
-        x_integrated_approx_MS, x_integrated_real_MS = integrate_MS(
-            x_opt=np.vstack((variable_data["q_opt"], variable_data["qdot_opt"])),
-            u=u_this_time,
-            dt=dt,
-            current_forward_dyn=current_forward_dyn,
-            real_forward_dyn=real_forward_dyn,
-        )
-        time_vector_MS = np.zeros((6 * n_shooting, ))
-        for i_node in range(n_shooting):
-            time_vector_MS[6 * i_node :6 * (i_node + 1)] = np.linspace(time_vector[i_node], time_vector[i_node + 1], 6)
-
-        # Compute the dynamics error
-        xdot_error_norm = np.linalg.norm(xdot_approx - xdot_real, axis=0) * 180 / np.pi
-        xdot_errors_this_time = np.mean(xdot_error_norm)
-        reintegration_error_norm = np.linalg.norm(x_integrated_approx - x_integrated_real, axis=0) * 180 / np.pi
-        reintegration_errors_this_time = np.mean(reintegration_error_norm)
-        learner.add_errors(xdot_errors_this_time, reintegration_errors_this_time)
-
-        # Compute the hand position error at final time
-        hand_position_real = np.zeros((2, n_shooting + 1))
-        for i_shooting in range(n_shooting + 1):
-            hand_position_real[:, i_shooting] = np.array(
-                real_marker_func(x_integrated_real[:2, i_shooting])).reshape(2, )
-        hand_position_error = np.linalg.norm(target_end - hand_position_real[:, -1])
-
-        # # Animate the optimal solution reintegration
-        # animate_reintegration(
-        #     q_reintegrated=x_integrated_real[:2, :],
-        #     muscles_opt=u_this_time,
-        # )
-
-        # Plot the results
-        fig, axs = plt.subplots(2, 3, figsize=(10, 8))
-        axs[0, 0].plot(time_vector, x_integrated_approx[0, :], '-c', label='Approx x')
-        axs[0, 0].plot(time_vector, x_integrated_real[0, :], '--b', label='Real x')
-        axs[0, 0].plot(time_vector[:-1], xdot_approx[0, :], '-m', label='Approx xdot')
-        axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '--r', label='Real xdot')
-        axs[0, 0].plot(time_vector_MS, x_integrated_approx_MS[0, :], '.', color="tab:gray", label='Approx x MS')
-        # axs[0, 0].plot(time_vector_MS, x_integrated_real_MS[0, :], 'o', mfc='none', color="k", label='real x MS')
-        if converged:
-            axs[0, 0].plot(time_vector, variable_data["q_opt"][0, :], ':g', label='Optimal xdot')
-        axs[0, 0].set_title("Q1")
-
-        axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx x')
-        axs[0, 1].plot(time_vector, x_integrated_real[1, :], '--b', label='Real x')
-        axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx xdot')
-        axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '--r', label='Real xdot')
-        axs[0, 1].plot(time_vector_MS, x_integrated_approx_MS[1, :], '.', color="tab:gray", label='Approx x MS')
-        # axs[0, 1].plot(time_vector_MS, x_integrated_real_MS[1, :], 'o', mfc='none', color="k", label='real x MS')
-        if converged:
-            axs[0, 1].plot(time_vector, variable_data["q_opt"][1, :], ':g', label='Optimal x')
-        axs[0, 1].set_title("Q2")
-
-        axs[1, 0].plot(time_vector, x_integrated_approx[2, :], '-c', label='Approx x')
-        axs[1, 0].plot(time_vector, x_integrated_real[2, :], '--b', label='Real x')
-        axs[1, 0].plot(time_vector[:-1], xdot_approx[2, :], '-m', label='Approx xdot')
-        axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '--r', label='Real xdot')
-        axs[1, 0].plot(time_vector_MS, x_integrated_approx_MS[2, :], '.', color="tab:gray", label='Approx x MS')
-        # axs[1, 0].plot(time_vector_MS, x_integrated_real_MS[2, :], 'o', mfc='none', color="k", label='real x MS')
-        if converged:
-            axs[1, 0].plot(time_vector, variable_data["qdot_opt"][0, :], ':g', label='Optimal x')
-        axs[1, 0].set_title("Qdot1")
-
-        axs[1, 1].plot(time_vector, x_integrated_approx[3, :], '-c', label='Approx x')
-        axs[1, 1].plot(time_vector, x_integrated_real[3, :], '--b', label='Real x')
-        axs[1, 1].plot(time_vector[:-1], xdot_approx[3, :], '-m', label='Approx xdot')
-        axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '--r', label='Real xdot')
-        axs[1, 1].plot(time_vector_MS, x_integrated_approx_MS[3, :], '.', color="tab:gray", label='Approx x MS')
-        # axs[1, 1].plot(time_vector_MS, x_integrated_real_MS[3, :], 'o', mfc='none', color="k", label='real x MS')
-        if converged:
-            axs[1, 1].plot(time_vector, variable_data["qdot_opt"][1, :], ':g', label='Optimal x')
-        axs[1, 1].set_title("Qdot2")
-
-        axs[0, 1].legend()
-
-        axs[0, 2].plot(hand_position_real[0, :], hand_position_real[1, :], '--b', label='Real hand trajectory')
-        axs[0, 2].plot(opt_end_effector_position[0, :], opt_end_effector_position[1, :], ':g', label='Optimal hand trajectory')
-        axs[0, 2].plot(target_start[0], target_start[1], 'og', label='Target')
-        axs[0, 2].plot(target_end[0], target_end[1], 'or', label='Target')
-        home_position = np.array([-0.0212132, 0.445477])
-        circ = plt.Circle(home_position, 0.15, fill=False, linestyle="-")
-        axs[0, 2].add_patch(circ)
-        axs[0, 2].axis("equal")
-
-        fig_path = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.png"
-        plt.savefig(fig_path)
-        # plt.show()
-
-        sys.stdout = sys.__stdout__
-        print(f"{i_episode} --- reintegration error: "
-              f"{reintegration_errors_this_time:.6f} [{np.min(reintegration_error_norm)}, {np.max(reintegration_error_norm)}] deg"
-              f"--- hand position error: {hand_position_error * 100:.6f} cm")
-        sys.stdout = output_file
-        print(f"{i_episode} --- reintegration error: "
-              f"{reintegration_errors_this_time:.6f} [{np.min(reintegration_error_norm)}, {np.max(reintegration_error_norm)}] deg"
-              f"--- hand position error: {hand_position_error * 100:.6f} cm")
-
-        # Update the Spline parameter model with new observations
-        learner.update(
-            x_samples=x_integrated_real[:, :-1].T,
-            M_real=M_real,
-            N_real=N_real,
-        )
-        i_episode += 1
-        del ocp
-
-    print("-----------------------------------------------------")
-    print("Learning complete!")
-    learner.save_model(str_sup=f"_OCP")
-    learner.plotter.stop()
-
-    # Close the file and restore printing to the console
-    sys.stdout = sys.__stdout__
-    output_file.close()
-
 
