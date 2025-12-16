@@ -12,6 +12,7 @@ from ..objectives_utils import (
     reach_target_consistently,
     minimize_stochastic_efforts,
     minimize_gains,
+    minimize_gain_derivatives,
     minimize_muscle_activations,
     minimize_residual_tau,
 )
@@ -219,9 +220,11 @@ def prepare_socp_basic(
     # Objectives
     for i_node in range(n_shooting):
         j += minimize_stochastic_efforts(model, x[i_node], u[i_node], noises_numerical[i_node]) * dt / 2
-        # j += minimize_muscle_activations(model, u[i_node]) * dt / 2
+        # j += minimize_muscle_activations(model, u[i_node]) * dt / 2  # remove ?
         j += minimize_residual_tau(model, u[i_node]) * 10 * dt / 2
-        j += minimize_gains(model, u[i_node]) * dt / 2  # Regularization
+        j += minimize_gains(model, u[i_node]) * dt / 2  # Regularization (10 ?)
+        # if i_node < n_shooting - 1:
+        #     j += minimize_gain_derivatives(model, u[i_node], u[i_node+1]) * dt / 2  # Regularization
     j += reach_target_consistently(model, x[-1], example_type)
 
     # # Constraints
@@ -261,5 +264,6 @@ def prepare_socp_basic(
         "final_time": final_time,
         "example_type": example_type,
         "force_field_magnitude": force_field_magnitude,
+        "noises_numerical": noises_numerical,
     }
     return ocp
