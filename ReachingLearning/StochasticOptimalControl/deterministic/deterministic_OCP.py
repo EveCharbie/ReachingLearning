@@ -13,6 +13,7 @@ def declare_variables(
     target_end: np.ndarray,
     n_shooting: int,
     muscle_driven: bool = True,
+    max_velocity: float = 10 * np.pi,
 ) -> tuple[list[cas.MX], list[cas.MX], list[cas.MX], list[float], list[float], list[float]]:
     """
     Declare all variables (states and controls) and their initial guess
@@ -52,8 +53,8 @@ def declare_variables(
             lbw += [0, 0, 0, 0]
             ubw += [np.pi / 2, 7 / 8 * np.pi, 0, 0]
         else:
-            lbw += [0, 0, -10 * np.pi, -10 * np.pi]
-            ubw += [np.pi / 2, 7 / 8 * np.pi, 10 * np.pi, 10 * np.pi]
+            lbw += [0, 0, -max_velocity, -max_velocity]
+            ubw += [np.pi / 2, 7 / 8 * np.pi, max_velocity, max_velocity]
         w0 += [joint_angles_init[0, i_node], joint_angles_init[1, i_node], 0, 0]
         if i_node < n_shooting:
             if muscle_driven:
@@ -67,8 +68,8 @@ def declare_variables(
                 tau_i = cas.MX.sym(f"tau_{i_node}", 2)
                 u += [tau_i]
                 w += [tau_i]
-                lbw += [-100] * 2
-                ubw += [100] * 2
+                lbw += [-10] * 2
+                ubw += [10] * 2
                 w0 += [1e-6] * 2
     return x, u, w, lbw, ubw, w0
 
@@ -110,6 +111,7 @@ def prepare_ocp(
     target_start: np.ndarray = TARGET_START_VAN_WOUWE,
     target_end: np.ndarray = TARGET_END_VAN_WOUWE,
     muscle_driven: bool = True,
+    max_velocity: float = 10 * np.pi,
 ) -> dict[str, any]:
 
     # Model
@@ -121,7 +123,14 @@ def prepare_ocp(
     )
 
     # Variables
-    x, u, w, lbw, ubw, w0 = declare_variables(model, target_start, target_end, n_shooting, muscle_driven=muscle_driven)
+    x, u, w, lbw, ubw, w0 = declare_variables(
+        model,
+        target_start,
+        target_end,
+        n_shooting,
+        muscle_driven=muscle_driven,
+        max_velocity=max_velocity,
+    )
 
     # Start with an empty NLP
     j = 0

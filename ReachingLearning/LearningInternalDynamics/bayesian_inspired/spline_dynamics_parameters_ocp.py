@@ -36,12 +36,16 @@ class SplineParametersDynamicsLearner:
             self,
             nb_q: int,
             smoothness: float = 0.1,
-            nb_grid_points: int = 10,
+            nb_grid_points_q: int = 10,
+            nb_grid_points_qdot: int = 20,
+            max_velocity: float = 10 * np.pi,
             kernel: str = 'thin_plate_spline',
     ):
         self.nb_q = nb_q
         self.smoothness = smoothness
-        self.nb_grid_points = nb_grid_points
+        self.nb_grid_points_q = nb_grid_points_q
+        self.nb_grid_points_qdot = nb_grid_points_qdot
+        self.max_velocity = max_velocity
         self.kernel = kernel
 
         # Storage for training data
@@ -168,16 +172,15 @@ class SplineParametersDynamicsLearner:
         """
 
         # Creating a fixed meshgrid over the RoM as CasADi is a fucker and returns zero instead of extrapolating !
-        input_resampled = np.zeros((self.nb_grid_points, self.nb_q * 2))
-        input_resampled[:, 0] = np.linspace(0, np.pi/2, self.nb_grid_points)
-        input_resampled[:, 1] = np.linspace(0, 7/8 * np.pi, self.nb_grid_points)
-        input_resampled[:, 2] = np.linspace(-10 * np.pi, 10 * np.pi, self.nb_grid_points)
-        input_resampled[:, 3] = np.linspace(-10 * np.pi, 10 * np.pi, self.nb_grid_points)
+        input_resampled_q1 = np.linspace(0, np.pi/2, self.nb_grid_points_q)
+        input_resampled_q2 = np.linspace(0, 7/8 * np.pi, self.nb_grid_points_q)
+        input_resampled_qdot1 = np.linspace(-self.max_velocity, self.max_velocity, self.nb_grid_points_qdot)
+        input_resampled_qdot2 = np.linspace(-self.max_velocity, self.max_velocity, self.nb_grid_points_qdot)
         gridq1, gridq2, gridqdot1, gridqdot2 = np.meshgrid(
-            input_resampled[:, 0],
-            input_resampled[:, 1],
-            input_resampled[:, 2],
-            input_resampled[:, 3],
+            input_resampled_q1,
+            input_resampled_q2,
+            input_resampled_qdot1,
+            input_resampled_qdot2,
             indexing='ij',
         )
 
@@ -192,10 +195,10 @@ class SplineParametersDynamicsLearner:
                 gridqdot2.ravel(),
             )).T)
             lut[key] = cas.interpolant(f"lut_{iter_num}_{key}", "bspline", [
-                    input_resampled[:, 0],
-                    input_resampled[:, 1],
-                    input_resampled[:, 2],
-                    input_resampled[:, 3],
+                    input_resampled_q1,
+                    input_resampled_q2,
+                    input_resampled_qdot1,
+                    input_resampled_qdot2,
                 ], interpolated_values[key])
 
         X = cas.MX.sym("X", self.nb_q * 2)
@@ -250,7 +253,7 @@ class SplineParametersDynamicsLearner:
             self.plotter.stop()
 
 
-def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int):
+def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points_q: int, nb_grid_points_qdot: int):
     """
     Train a spline dynamics parameters model using OCPs to generate the xdots.
 
@@ -272,19 +275,27 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int)
     hand_error_threshold = 0.01  # 1 cm
     tol = 1e-6
     # motor_noise = 0.05
+    max_tau = 10.0
+    max_velocity = 5.0
 
     # Get the real dynamics
     real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
     real_marker_func = get_the_real_marker_position()
 
     # Initialize the Spline parameter learner
-    learner = SplineParametersDynamicsLearner(nb_q, smoothness, nb_grid_points)
+    learner = SplineParametersDynamicsLearner(
+        nb_q=nb_q,
+        smoothness=smoothness,
+        nb_grid_points_q=nb_grid_points_q,
+        nb_grid_points_qdot=nb_grid_points_qdot,
+        max_velocity=max_velocity,
+    )
 
     # Learn ten episodes
     for i_learn in range(10):
 
         # Generate random data to initially train on
-        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
+        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting, max_tau=max_tau, max_velocity=max_velocity)
 
         # Evaluate the error made by the approximate dynamics
         _, x_integrated_real, _, xdot_real, M_real, N_real = integrate_the_dynamics(
@@ -330,6 +341,7 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int)
             target_start=target_start,
             target_end=target_end,
             muscle_driven=False,
+            max_velocity=max_velocity,  # Reduced max velocity to help calm the dynamics
         )
         w_opt, f_opt, g_opt, solver = solve(
             ocp,
@@ -537,8 +549,8 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points: int)
 
         fig_path = f"{current_path}/../../../results/LearningInternalDynamics/ocp_results_spline_dynamics_parameters_{i_episode}.png"
         plt.savefig(fig_path)
-        plt.show()
-        # plt.close()
+        # plt.show()
+        plt.close()
 
         sys.stdout = sys.__stdout__
         print(f"{i_episode} --- reintegration error: "

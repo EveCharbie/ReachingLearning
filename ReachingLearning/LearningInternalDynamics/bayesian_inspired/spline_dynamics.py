@@ -12,6 +12,7 @@ import biorbd_casadi as biorbd
 from scipy.interpolate import RBFInterpolator
 
 from ...StochasticOptimalControl.utils import RK4
+from ...LearningInternalDynamics.bayesian_inspired.utils import generate_random_data
 
 
 class LivePlotter:
@@ -361,18 +362,6 @@ def integrate_the_dynamics(
             np.zeros((nb_q,)),
         )).reshape(-1, )
     return x_integrated_approx, x_integrated_real, xdot_approx, xdot_real
-
-
-def generate_random_data(nb_q, n_shooting):
-    # Generate random data to compare against
-    x0_this_time = np.array([
-        np.random.uniform(0, np.pi / 2),
-        np.random.uniform(0, 7 / 8 * np.pi),
-        np.random.uniform(-5, 5),
-        np.random.uniform(-5, 5),
-    ])
-    u_this_time = np.random.uniform(-1, 1, (nb_q, n_shooting))
-    return x0_this_time, u_this_time
 
 
 def train_spline_dynamics_learner():

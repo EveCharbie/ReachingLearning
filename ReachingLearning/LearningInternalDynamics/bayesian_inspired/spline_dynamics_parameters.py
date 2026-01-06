@@ -368,7 +368,7 @@ def get_tau_opt(q: np.ndarray, qdot: np.ndarray, muscles: np.ndarray) -> np.ndar
         tau_opt[:, i_node] = biorbd_model.muscles.joint_torque(activations=muscles[:, i_node], q=q[:, i_node], qdot=qdot[:, i_node])
     return tau_opt
 
-def train_spline_dynamics_parameters_learner(smoothness):
+def train_spline_dynamics_parameters_learner(smoothness: float, enable_plotting: bool, max_tau: float = 10.0, max_velocity: float = 10 * np.pi):
     np.random.seed(0)
 
     # Constants
@@ -381,13 +381,13 @@ def train_spline_dynamics_parameters_learner(smoothness):
     real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
 
     # Initialize the Spline parameter learner
-    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=False)
+    learner = SplineParametersDynamicsLearner(nb_q, smoothness, enable_plotting=enable_plotting)
 
     # Learn ten episodes
     for i_learn in range(10):
 
         # Generate random data to initially train on
-        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
+        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting, max_tau=max_tau, max_velocity=max_velocity)
 
         # Evaluate the error made by the approximate dynamics
         _, x_integrated_real, _, xdot_real, M_real, N_real = integrate_the_dynamics(
@@ -417,7 +417,7 @@ def train_spline_dynamics_parameters_learner(smoothness):
     for i_episode in range(100):
 
         # Generate random data to compare against
-        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting)
+        x0_this_time, u_this_time = generate_random_data(nb_q, n_shooting, max_tau=max_tau, max_velocity=max_velocity)
 
         # Evaluate the error made by the approximate dynamics
         current_forward_dyn = learner.forward_dyn
@@ -449,7 +449,8 @@ def train_spline_dynamics_parameters_learner(smoothness):
     print("-----------------------------------------------------")
     print("Learning complete!")
     learner.save_model(str_sup=f"{str(smoothness).replace('.', 'p')}")
-    # learner.plotter.stop()
+    if enable_plotting:
+        learner.plotter.stop()
 
     # Close the file and restore printing to the console
     sys.stdout = sys.__stdout__

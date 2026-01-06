@@ -164,15 +164,15 @@ def integrate_MS(
     return x_integrated_approx_MS, x_integrated_real_MS
 
 
-def generate_random_data(nb_q, n_shooting):
+def generate_random_data(nb_q, n_shooting, max_velocity: float = 10*np.pi, max_tau: float = 10):
     # Generate random data to compare against
     x0_this_time = np.array([
         np.random.uniform(0, np.pi / 2),
         np.random.uniform(0, 7 / 8 * np.pi),
-        np.random.uniform(-5, 5),
-        np.random.uniform(-5, 5),
+        np.random.uniform(-max_velocity, max_velocity),
+        np.random.uniform(-max_velocity, max_velocity),
     ])
-    u_this_time = np.random.uniform(0, 0.1, (nb_q, n_shooting))
+    u_this_time = np.random.uniform(0, max_tau, (nb_q, n_shooting))
     # u_this_time = np.random.uniform(0, 0.1, (6, n_shooting))
     return x0_this_time, u_this_time
 
