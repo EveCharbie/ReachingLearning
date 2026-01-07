@@ -247,11 +247,6 @@ class SplineParametersDynamicsLearner:
             }
             pickle.dump(output, f)
 
-    def __del__(self):
-        """Cleanup plotter on deletion"""
-        if self.enable_plotting and self.plotter:
-            self.plotter.stop()
-
 
 def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points_q: int, nb_grid_points_qdot: int):
     """
@@ -573,7 +568,7 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points_q: in
     print("-----------------------------------------------------")
     print("Learning complete!")
     learner.save_model(str_sup=f"_OCP")
-    learner.plotter.stop()
+    # learner.plotter.stop()
 
     # Close the file and restore printing to the console
     sys.stdout = sys.__stdout__
