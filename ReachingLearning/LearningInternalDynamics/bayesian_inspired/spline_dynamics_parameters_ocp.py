@@ -20,6 +20,7 @@ from .utils import (
     animate_reintegration,
 )
 # from ...constants import TARGET_START_VAN_WOUWE, TARGET_END_VAN_WOUWE
+from .spline_dynamics_parameters import get_tau_opt
 
 from ...StochasticOptimalControl.deterministic.deterministic_OCP import prepare_ocp
 from ...StochasticOptimalControl.deterministic.deterministic_save_results import save_ocp_torque_driven
@@ -573,5 +574,81 @@ def train_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points_q: in
     # Close the file and restore printing to the console
     sys.stdout = sys.__stdout__
     output_file.close()
+
+
+def evaluate_spline_dynamics_parameters_ocp(smoothness: float, nb_grid_points_q: int, nb_grid_points_qdot: int):
+    """Test loading the saved model"""
+
+    # Load the model
+    current_path = Path(__file__).parent
+    spline_model_path = f"{current_path}/../../../results/LearningInternalDynamics/spline_dynamics_model__OCP.pkl"
+    with open(spline_model_path, 'rb') as f:
+        learned_parameters = pickle.load(f)
+    learner = SplineParametersDynamicsLearner(
+        nb_q=2,
+        smoothness=smoothness,
+        nb_grid_points_q=nb_grid_points_q,
+        nb_grid_points_qdot=nb_grid_points_qdot,
+        max_velocity=5,
+        ).from_learned_parameters(learned_parameters)
+
+    # Load the OCP kinematics to test the error
+    ocp_file_path = f"{current_path}/../../../results/StochasticOptimalControl/ocp_forcefield0_CIRCLE_CVG_1p0e-06.pkl"
+    with open(ocp_file_path, 'rb') as file:
+        ocp_sol = pickle.load(file)
+
+     # Extract the optimal trajectories
+    q = ocp_sol["q_opt"]
+    qdot = ocp_sol["qdot_opt"]
+    muscles = ocp_sol["muscle_opt"]
+    time_vector = ocp_sol["time_vector"]
+    dt = time_vector[1] - time_vector[0]
+
+    # Get the real dynamics
+    real_forward_dyn, inv_mass_matrix_func, nl_effect_vector_func = get_the_real_dynamics()
+
+    # TODO: this step should be added in the model (q, qdot, mus -> Tau)
+    u = get_tau_opt(q=q, qdot=qdot, muscles=muscles)
+
+    # Evaluate the error made by the approximate dynamics
+    current_forward_dyn = learner.forward_dyn
+    x_integrated_approx, x_integrated_real, xdot_approx, xdot_real, M_real, N_real = integrate_the_dynamics(
+        np.hstack((q[:, 0], qdot[:, 0])),
+        u,
+        dt,
+        current_forward_dyn=current_forward_dyn,
+        real_forward_dyn=real_forward_dyn,
+        inv_mass_matrix_func=inv_mass_matrix_func,
+        nl_effect_vector_func=nl_effect_vector_func,
+    )
+
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+    axs[0, 0].plot(time_vector, x_integrated_approx[0, :], '-c', label='Approx x')
+    axs[0, 0].plot(time_vector, x_integrated_real[0, :], '-b', label='Real x')
+    axs[0, 0].plot(time_vector[:-1], xdot_approx[0, :], '-m', label='Approx xdot')
+    axs[0, 0].plot(time_vector[:-1], xdot_real[0, :], '-r', label='Real xdot')
+    axs[0, 0].set_title("Q1")
+
+    axs[0, 1].plot(time_vector, x_integrated_approx[1, :], '-c', label='Approx q')
+    axs[0, 1].plot(time_vector, x_integrated_real[1, :], '-b', label='Real q')
+    axs[0, 1].plot(time_vector[:-1], xdot_approx[1, :], '-m', label='Approx qdot')
+    axs[0, 1].plot(time_vector[:-1], xdot_real[1, :], '-r', label='Real qdot')
+    axs[0, 1].set_title("Q2")
+
+    axs[1, 0].plot(time_vector, x_integrated_approx[2, :], '-c', label='Approx x')
+    axs[1, 0].plot(time_vector, x_integrated_real[2, :], '-b', label='Real x')
+    axs[1, 0].plot(time_vector[:-1], xdot_approx[2, :], '-m', label='Approx xdot')
+    axs[1, 0].plot(time_vector[:-1], xdot_real[2, :], '-r', label='Real xdot')
+    axs[1, 0].set_title("Qdot1")
+
+    axs[1, 1].plot(time_vector, x_integrated_approx[3, :], '-c', label='Approx x')
+    axs[1, 1].plot(time_vector, x_integrated_real[3, :], '-b', label='Real x')
+    axs[1, 1].plot(time_vector[:-1], xdot_approx[3, :], '-m', label='Approx xdot')
+    axs[1, 1].plot(time_vector[:-1], xdot_real[3, :], '-r', label='Real xdot')
+    axs[1, 1].set_title("Qdot2")
+
+    axs[0, 1].legend()
+    fig_path = f"{current_path}/../../../figures/LearningInternalDynamics/spline_dynamics_model_evaluation__OCP.png"
+    plt.savefig(fig_path)
 
 

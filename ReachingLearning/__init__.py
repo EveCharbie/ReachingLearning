@@ -56,4 +56,5 @@ from .LearningInternalDynamics.bayesian_inspired.spline_dynamics_parameters impo
 )
 from .LearningInternalDynamics.bayesian_inspired.spline_dynamics_parameters_ocp import (
     train_spline_dynamics_parameters_ocp,
+    evaluate_spline_dynamics_parameters_ocp,
 )
